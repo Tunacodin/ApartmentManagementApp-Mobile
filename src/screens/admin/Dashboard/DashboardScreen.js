@@ -1,54 +1,61 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  TouchableOpacity, 
+  RefreshControl,
+  ActivityIndicator 
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
 import { API_ENDPOINTS, getCurrentAdminId } from '../../../config/apiConfig';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const DashboardScreen = () => {
   const navigation = useNavigation();
-  const [statistics, setStatistics] = useState(null);
-  const [financialData, setFinancialData] = useState([]);
+  const [dashboardData, setDashboardData] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const fetchDashboardData = async () => {
     try {
       const adminId = getCurrentAdminId();
-      const [statisticsResponse, financialResponse] = await Promise.all([
+      const [statisticsResponse, activitiesResponse, financialResponse] = await Promise.all([
         axios.get(API_ENDPOINTS.ADMIN.STATISTICS(adminId)),
+        axios.get(API_ENDPOINTS.ADMIN.ACTIVITIES(adminId)),
         axios.get(API_ENDPOINTS.ADMIN.FINANCIAL_SUMMARIES(adminId))
       ]);
 
-      setStatistics(statisticsResponse.data.data);
-      setFinancialData(financialResponse.data.data);
+      console.log('Statistics API Response:', {
+        endpoint: API_ENDPOINTS.ADMIN.STATISTICS(adminId),
+        data: statisticsResponse.data
+      });
+      console.log('Activities API Response:', {
+        endpoint: API_ENDPOINTS.ADMIN.ACTIVITIES(adminId),
+        data: activitiesResponse.data
+      });
+      console.log('Financial API Response:', {
+        endpoint: API_ENDPOINTS.ADMIN.FINANCIAL_SUMMARIES(adminId),
+        data: financialResponse.data
+      });
+
+      setDashboardData({
+        totalResidents: statisticsResponse.data.data.totalResidents,
+        activeComplaints: statisticsResponse.data.data.activeComplaints,
+        pendingPayments: statisticsResponse.data.data.pendingPayments,
+        upcomingMeetings: statisticsResponse.data.data.upcomingMeetings,
+        recentActivities: activitiesResponse.data.data || [],
+        financialSummaries: financialResponse.data.data || []
+      });
     } catch (error) {
       console.error('Dashboard veri çekme hatası:', error);
       console.error('Hata detayı:', error.response?.data || error.message);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Finansal verileri toplama fonksiyonu
-  const calculateTotalFinancials = () => {
-    if (!financialData || financialData.length === 0) return {
-      totalIncome: 0,
-      totalExpectedIncome: 0,
-      totalPendingAmount: 0,
-      totalPendingPayments: 0
-    };
-
-    return financialData.reduce((acc, building) => ({
-      totalIncome: acc.totalIncome + building.collectedAmount,
-      totalExpectedIncome: acc.totalExpectedIncome + building.expectedIncome,
-      totalPendingAmount: acc.totalPendingAmount + building.pendingAmount,
-      totalPendingPayments: acc.totalPendingPayments + building.pendingPayments
-    }), {
-      totalIncome: 0,
-      totalExpectedIncome: 0,
-      totalPendingAmount: 0,
-      totalPendingPayments: 0
-    });
   };
 
   const onRefresh = async () => {
@@ -61,21 +68,164 @@ const DashboardScreen = () => {
     fetchDashboardData();
   }, []);
 
-  const QuickActionButton = ({ title, onPress }) => (
-    <TouchableOpacity style={styles.actionButton} onPress={onPress}>
-      <Text style={styles.actionButtonText}>{title}</Text>
+  const StatBox = ({ icon, number, label, color }) => (
+    <View style={styles.statBox}>
+      <MaterialCommunityIcons name={icon} size={24} color={color} />
+      <Text style={[styles.statNumber, { color }]}>{number}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+
+  const ActivityItem = ({ activity }) => {
+    const getStatusColor = (status) => {
+      switch (status.toLowerCase()) {
+        case 'paid':
+        case 'ödendi':
+          return '#34C759';
+        case 'pending':
+        case 'bekliyor':
+          return '#FF9500';
+        default:
+          return '#8E8E93';
+      }
+    };
+
+    const formatDate = (dateString) => {
+      return new Date(dateString).toLocaleDateString('tr-TR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    };
+
+    const getActivityTypeText = (type) => {
+      switch (type.toLowerCase()) {
+        case 'payment':
+          return 'Ödeme';
+        case 'complaint':
+          return 'Şikayet';
+        case 'meeting':
+          return 'Toplantı';
+        case 'announcement':
+          return 'Duyuru';
+        default:
+          return type;
+      }
+    };
+
+    return (
+      <View style={styles.activityItem}>
+        <View style={styles.activityHeader}>
+          <Text style={styles.activityType}>
+            {getActivityTypeText(activity.activityType)}
+          </Text>
+          <Text style={[styles.activityStatus, { color: getStatusColor(activity.status) }]}>
+            {activity.status === 'Paid' ? 'Ödendi' : 
+             activity.status === 'Pending' ? 'Bekliyor' : 
+             activity.status}
+          </Text>
+        </View>
+        <Text style={styles.activityDescription}>{activity.description}</Text>
+        <View style={styles.activityFooter}>
+          <Text style={styles.activityDate}>{formatDate(activity.activityDate)}</Text>
+          <Text style={styles.activityUser}>{activity.relatedUserName}</Text>
+        </View>
+      </View>
+    );
+  };
+
+  const BuildingCard = ({ building }) => (
+    <TouchableOpacity 
+      style={styles.buildingCard}
+      onPress={() => navigation.navigate('BuildingDetail', { buildingId: building.id })}
+    >
+      <Text style={styles.buildingName}>{building.buildingName}</Text>
+      <View style={styles.buildingStats}>
+        <View style={styles.buildingStat}>
+          <Text style={styles.buildingStatLabel}>Daireler</Text>
+          <Text style={styles.buildingStatValue}>{building.totalApartments}</Text>
+        </View>
+        <View style={styles.buildingStat}>
+          <Text style={styles.buildingStatLabel}>Doluluk</Text>
+          <Text style={styles.buildingStatValue}>%{(building.occupancyRate * 100).toFixed(0)}</Text>
+        </View>
+        <View style={styles.buildingStat}>
+          <Text style={styles.buildingStatLabel}>Ödemeler</Text>
+          <Text style={styles.buildingStatValue}>{building.pendingPayments}</Text>
+        </View>
+      </View>
     </TouchableOpacity>
   );
 
+  const FinancialSummaryCard = ({ summary }) => {
+    const collectionRateColor = summary.collectionRate >= 80 ? '#34C759' : 
+                               summary.collectionRate >= 50 ? '#FF9500' : '#FF3B30';
+    
+    const formatCurrency = (amount) => {
+      return new Intl.NumberFormat('tr-TR', {
+        style: 'currency',
+        currency: 'TRY',
+        minimumFractionDigits: 2
+      }).format(amount);
+    };
+
+    return (
+      <View style={styles.financialCard}>
+        <Text style={styles.buildingName}>{summary.buildingName}</Text>
+        
+        <View style={styles.financialRow}>
+          <View style={styles.financialItem}>
+            <Text style={styles.financialLabel}>Beklenen Gelir</Text>
+            <Text style={styles.financialValue}>{formatCurrency(summary.expectedIncome)}</Text>
+          </View>
+          <View style={styles.financialItem}>
+            <Text style={styles.financialLabel}>Tahsilat Oranı</Text>
+            <Text style={[styles.financialValue, { color: collectionRateColor }]}>
+              %{summary.collectionRate}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.financialRow}>
+          <View style={styles.financialItem}>
+            <Text style={styles.financialLabel}>Tahsil Edilen</Text>
+            <Text style={[styles.financialValue, { color: '#34C759' }]}>
+              {formatCurrency(summary.collectedAmount)}
+            </Text>
+          </View>
+          <View style={styles.financialItem}>
+            <Text style={styles.financialLabel}>Bekleyen</Text>
+            <Text style={[styles.financialValue, { color: '#FF3B30' }]}>
+              {formatCurrency(summary.pendingAmount)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.financialRow}>
+          <View style={styles.financialItem}>
+            <Text style={styles.financialLabel}>Toplam Ödeme</Text>
+            <Text style={styles.financialValue}>{summary.totalPayments}</Text>
+          </View>
+          <View style={styles.financialItem}>
+            <Text style={styles.financialLabel}>Bekleyen Ödeme</Text>
+            <Text style={[styles.financialValue, { color: summary.pendingPayments > 0 ? '#FF3B30' : '#34C759' }]}>
+              {summary.pendingPayments}
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   if (loading) {
     return (
-      <View style={styles.container}>
-        <Text>Yükleniyor...</Text>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
       </View>
     );
   }
-
-  const totals = calculateTotalFinancials();
 
   return (
     <ScrollView 
@@ -84,83 +234,123 @@ const DashboardScreen = () => {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      <View style={styles.header}>
+      <LinearGradient
+        colors={['#007AFF', '#00C6FF']}
+        style={styles.header}
+      >
         <Text style={styles.headerText}>Yönetici Paneli</Text>
-      </View>
+      </LinearGradient>
 
       <View style={styles.statsContainer}>
-        <View style={styles.statBox}>
-          <Text style={styles.statNumber}>{statistics?.totalResidents || 0}</Text>
-          <Text style={styles.statLabel}>Toplam Sakin</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statNumber}>{statistics?.upcomingMeetings || 0}</Text>
-          <Text style={styles.statLabel}>Yaklaşan Toplantı</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statNumber}>{statistics?.activeComplaints || 0}</Text>
-          <Text style={styles.statLabel}>Aktif Şikayet</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statNumber}>{statistics?.pendingPayments || 0}</Text>
-          <Text style={styles.statLabel}>Bekleyen Ödeme</Text>
-        </View>
+        <StatBox 
+          icon="account-group" 
+          number={dashboardData?.totalResidents || 0}
+          label="Toplam Sakin"
+          color="#007AFF"
+        />
+        <StatBox 
+          icon="alert-circle" 
+          number={dashboardData?.activeComplaints || 0}
+          label="Aktif Şikayet"
+          color="#FF3B30"
+        />
+        <StatBox 
+          icon="cash-multiple" 
+          number={dashboardData?.pendingPayments || 0}
+          label="Bekleyen Ödeme"
+          color="#FF9500"
+        />
+        <StatBox 
+          icon="calendar-clock" 
+          number={dashboardData?.upcomingMeetings || 0}
+          label="Yaklaşan Toplantı"
+          color="#34C759"
+        />
       </View>
 
-      <View style={styles.financialSummary}>
-        <Text style={styles.sectionTitle}>Finansal Özet</Text>
-        <View style={styles.financialGrid}>
-          <View style={styles.financialItem}>
-            <Text style={styles.financialLabel}>Toplam Tahsilat</Text>
-            <Text style={styles.financialValue}>{totals.totalIncome.toLocaleString()}₺</Text>
-          </View>
-          <View style={styles.financialItem}>
-            <Text style={styles.financialLabel}>Beklenen Gelir</Text>
-            <Text style={styles.financialValue}>{totals.totalExpectedIncome.toLocaleString()}₺</Text>
-          </View>
-          <View style={styles.financialItem}>
-            <Text style={styles.financialLabel}>Bekleyen Tutar</Text>
-            <Text style={[
-              styles.financialValue,
-              { color: totals.totalPendingAmount >= 0 ? '#28a745' : '#dc3545' }
-            ]}>{totals.totalPendingAmount.toLocaleString()}₺</Text>
-          </View>
-          <View style={styles.financialItem}>
-            <Text style={styles.financialLabel}>Bekleyen Ödeme</Text>
-            <Text style={styles.financialValue}>{totals.totalPendingPayments.toLocaleString()}</Text>
-          </View>
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Son Aktiviteler</Text>
+          <TouchableOpacity 
+            style={styles.seeAllButton}
+            onPress={() => navigation.navigate('Activities')}
+          >
+            <Text style={styles.seeAllText}>Tümünü Gör</Text>
+            <MaterialCommunityIcons name="chevron-right" size={24} color="#007AFF" />
+          </TouchableOpacity>
         </View>
+        {Array.isArray(dashboardData?.recentActivities) ? 
+          dashboardData.recentActivities.slice(0, 5).map((activity, index) => (
+            <ActivityItem key={index} activity={activity} />
+          )) : 
+          <Text style={styles.emptyText}>Henüz aktivite kaydı bulunmuyor</Text>
+        }
       </View>
 
-      <View style={styles.buildingSummary}>
-        <Text style={styles.sectionTitle}>Bina Özetleri</Text>
-        {financialData.map((building, index) => (
-          <View key={index} style={styles.buildingItem}>
-            <Text style={styles.buildingName}>{building.buildingName}</Text>
-            <View style={styles.buildingDetails}>
-              <Text style={styles.buildingText}>Tahsilat: {building.collectedAmount.toLocaleString()}₺</Text>
-              <Text style={styles.buildingText}>Beklenen: {building.expectedIncome.toLocaleString()}₺</Text>
-              <Text style={styles.buildingText}>Tahsilat Oranı: %{building.collectionRate.toFixed(1)}</Text>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Yönetilen Binalar</Text>
+        {Array.isArray(dashboardData?.buildingSummaries) ? 
+          dashboardData.buildingSummaries.map((building, index) => (
+            <BuildingCard key={index} building={building} />
+          )) : 
+          <Text style={styles.emptyText}>Henüz bina kaydı bulunmuyor</Text>
+        }
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Yaklaşan Toplantılar</Text>
+        {Array.isArray(dashboardData?.upcomingMeetings) ? 
+          dashboardData.upcomingMeetings.map((meeting, index) => (
+            <View key={index} style={styles.meetingItem}>
+              <Text style={styles.meetingTitle}>{meeting.title}</Text>
+              <Text style={styles.meetingDate}>
+                {new Date(meeting.date).toLocaleDateString('tr-TR', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </Text>
+              <Text style={styles.meetingBuilding}>{meeting.buildingName}</Text>
             </View>
-          </View>
-        ))}
+          )) : 
+          <Text style={styles.emptyText}>Yaklaşan toplantı bulunmuyor</Text>
+        }
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Finansal Özet</Text>
+        {Array.isArray(dashboardData?.financialSummaries) ? 
+          dashboardData.financialSummaries.map((summary, index) => (
+            <FinancialSummaryCard key={index} summary={summary} />
+          )) : 
+          <Text style={styles.emptyText}>Henüz finansal veri bulunmuyor</Text>
+        }
       </View>
 
       <View style={styles.quickActions}>
         <Text style={styles.sectionTitle}>Hızlı İşlemler</Text>
         <View style={styles.actionGrid}>
-          <QuickActionButton 
-            title="Toplantı Oluştur" 
-            onPress={() => navigation.navigate('CreateMeeting')} 
-          />
-          <QuickActionButton 
-            title="Duyuru Oluştur" 
-            onPress={() => navigation.navigate('CreateAnnouncement')} 
-          />
-          <QuickActionButton 
-            title="Bildirim Gönder" 
-            onPress={() => navigation.navigate('CreateNotification')} 
-          />
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('CreateMeeting')}
+          >
+            <MaterialCommunityIcons name="calendar-plus" size={24} color="white" />
+            <Text style={styles.actionButtonText}>Toplantı Oluştur</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('CreateAnnouncement')}
+          >
+            <MaterialCommunityIcons name="bullhorn" size={24} color="white" />
+            <Text style={styles.actionButtonText}>Duyuru Oluştur</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('CreateNotification')}
+          >
+            <MaterialCommunityIcons name="bell-plus" size={24} color="white" />
+            <Text style={styles.actionButtonText}>Bildirim Gönder</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </ScrollView>
@@ -172,15 +362,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   header: {
     padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    paddingTop: 40,
   },
   headerText: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: 'white',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -190,7 +384,7 @@ const styles = StyleSheet.create({
   },
   statBox: {
     width: '48%',
-    backgroundColor: '#fff',
+    backgroundColor: 'white',
     padding: 15,
     marginBottom: 10,
     borderRadius: 10,
@@ -204,74 +398,73 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#007AFF',
+    marginVertical: 5,
   },
   statLabel: {
     fontSize: 14,
     color: '#666',
-    marginTop: 5,
   },
-  financialSummary: {
-    padding: 20,
-    backgroundColor: '#fff',
+  section: {
+    padding: 15,
+    backgroundColor: 'white',
     marginTop: 10,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
+    color: '#333',
   },
-  financialGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  financialItem: {
-    width: '48%',
+  activityItem: {
     backgroundColor: '#f8f9fa',
     padding: 15,
-    marginBottom: 10,
     borderRadius: 8,
+    marginBottom: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#007AFF',
   },
-  financialLabel: {
-    fontSize: 14,
-    color: '#666',
+  activityHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  financialValue: {
-    fontSize: 18,
+  activityType: {
     fontWeight: 'bold',
-    color: '#28a745',
+    color: '#007AFF',
+    fontSize: 14,
+  },
+  activityStatus: {
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  activityDescription: {
+    fontSize: 15,
+    color: '#333',
+    marginBottom: 8,
+  },
+  activityFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: 5,
   },
-  quickActions: {
-    padding: 20,
-    backgroundColor: '#fff',
-    marginTop: 10,
+  activityUser: {
+    fontSize: 13,
+    color: '#007AFF',
+    fontWeight: '500',
   },
-  actionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+  activityDate: {
+    fontSize: 12,
+    color: '#666',
   },
-  actionButton: {
-    width: '48%',
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
-    alignItems: 'center',
-  },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  buildingSummary: {
-    padding: 20,
-    backgroundColor: '#fff',
-    marginTop: 10,
-  },
-  buildingItem: {
+  buildingCard: {
     backgroundColor: '#f8f9fa',
     padding: 15,
     borderRadius: 8,
@@ -280,15 +473,109 @@ const styles = StyleSheet.create({
   buildingName: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  buildingDetails: {
-    gap: 4,
+  buildingStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
-  buildingText: {
+  buildingStat: {
+    alignItems: 'center',
+  },
+  buildingStatLabel: {
+    fontSize: 12,
+    color: '#666',
+  },
+  buildingStatValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#007AFF',
+  },
+  meetingItem: {
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  meetingTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  meetingDate: {
     fontSize: 14,
     color: '#666',
-  }
+    marginBottom: 5,
+  },
+  meetingBuilding: {
+    fontSize: 12,
+    color: '#666',
+  },
+  quickActions: {
+    padding: 15,
+    backgroundColor: 'white',
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  actionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  actionButton: {
+    width: '31%',
+    backgroundColor: '#007AFF',
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  actionButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginTop: 5,
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  financialCard: {
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  financialStats: {
+    // Add appropriate styles for financialStats
+  },
+  financialRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  financialStat: {
+    alignItems: 'center',
+  },
+  financialLabel: {
+    fontSize: 12,
+    color: '#666',
+  },
+  financialValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#007AFF',
+  },
+  seeAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  seeAllText: {
+    color: '#007AFF',
+    fontSize: 14,
+    marginRight: 4,
+  },
 });
 
 export default DashboardScreen;

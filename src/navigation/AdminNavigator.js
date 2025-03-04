@@ -8,6 +8,7 @@ import DashboardScreen from '../screens/admin/Dashboard/DashboardScreen';
 import CreateMeetingScreen from '../screens/admin/Dashboard/CreateMeetingScreen';
 import CreateAnnouncementScreen from '../screens/admin/Dashboard/CreateAnnouncementScreen';
 import CreateNotificationScreen from '../screens/admin/Dashboard/CreateNotificationScreen';
+import ActivitiesScreen from '../screens/admin/Dashboard/ActivitiesScreen';
 
 // Management Screens
 import ManagementScreen from '../screens/admin/Management/ManagementScreen';
@@ -25,6 +26,7 @@ import IncomeScreen from '../screens/admin/Finance/IncomeScreen';
 import FinancialReportsScreen from '../screens/admin/Finance/FinancialReportsScreen';
 
 // Reports Screens
+import ReportsScreen from '../screens/admin/Reports/ReportsScreen';
 import MeetingAttendanceScreen from '../screens/admin/Reports/MeetingAttendanceScreen';
 import SurveyResultsScreen from '../screens/admin/Reports/SurveyResultsScreen';
 
@@ -38,6 +40,7 @@ const Tab = createBottomTabNavigator();
 const DashboardStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="DashboardMain" component={DashboardScreen} />
+    <Stack.Screen name="Activities" component={ActivitiesScreen} />
     <Stack.Screen name="CreateMeeting" component={CreateMeetingScreen} />
     <Stack.Screen name="CreateAnnouncement" component={CreateAnnouncementScreen} />
     <Stack.Screen name="CreateNotification" component={CreateNotificationScreen} />
@@ -72,6 +75,7 @@ const FinanceStack = () => (
 // Reports Stack Navigator
 const ReportsStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="ReportsMain" component={ReportsScreen} />
     <Stack.Screen name="MeetingAttendance" component={MeetingAttendanceScreen} />
     <Stack.Screen name="SurveyResults" component={SurveyResultsScreen} />
   </Stack.Navigator>

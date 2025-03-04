@@ -21,17 +21,17 @@ const SurveysScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedSurvey, setSelectedSurvey] = useState(null);
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [selectedBuildingId, setSelectedBuildingId] = useState(1);
   const [newSurvey, setNewSurvey] = useState({
     title: '',
     description: '',
-    endDate: new Date(new Date().setDate(new Date().getDate() + 7)), // 1 hafta sonrası
-    questions: [{ text: '', options: ['', ''] }],
-    buildingId: '',
-    type: 'Regular'
+    startDate: new Date(),
+    endDate: new Date(new Date().setDate(new Date().getDate() + 7)),
+    buildingId: '1',
+    questions: []
   });
-  const [selectedBuildingId, setSelectedBuildingId] = useState(1);
 
   const fetchSurveys = async () => {
     try {
@@ -56,17 +56,15 @@ const SurveysScreen = () => {
     fetchSurveys();
   };
 
-  const handleAddSurvey = async () => {
-    if (!newSurvey.title || !newSurvey.description || !newSurvey.buildingId || newSurvey.questions.some(q => !q.text || q.options.some(opt => !opt))) {
-      Alert.alert('Hata', 'Lütfen tüm zorunlu alanları doldurun ve en az bir soru ekleyin.');
+  const handleCreateSurvey = async () => {
+    if (!newSurvey.title || !newSurvey.description) {
+      Alert.alert('Hata', 'Lütfen tüm zorunlu alanları doldurun.');
       return;
     }
 
     try {
-      const adminId = getCurrentAdminId();
-      const response = await axios.post(API_ENDPOINTS.ADMIN.SURVEYS.CREATE, {
+      const response = await axios.post(API_ENDPOINTS.SURVEY.CREATE, {
         ...newSurvey,
-        adminId: adminId,
         buildingId: parseInt(newSurvey.buildingId)
       });
 
@@ -76,10 +74,10 @@ const SurveysScreen = () => {
         setNewSurvey({
           title: '',
           description: '',
+          startDate: new Date(),
           endDate: new Date(new Date().setDate(new Date().getDate() + 7)),
-          questions: [{ text: '', options: ['', ''] }],
-          buildingId: '',
-          type: 'Regular'
+          buildingId: '1',
+          questions: []
         });
         fetchSurveys();
       }
@@ -91,11 +89,7 @@ const SurveysScreen = () => {
 
   const handleCloseSurvey = async (surveyId) => {
     try {
-      const adminId = getCurrentAdminId();
-      await axios.put(API_ENDPOINTS.ADMIN.SURVEYS.CLOSE(surveyId), {
-        adminId: adminId
-      });
-
+      await axios.post(API_ENDPOINTS.SURVEY.CLOSE(surveyId));
       Alert.alert('Başarılı', 'Anket kapatıldı.');
       fetchSurveys();
     } catch (error) {
@@ -104,42 +98,17 @@ const SurveysScreen = () => {
     }
   };
 
-  const onDateChange = (event, selectedDate) => {
-    setShowDatePicker(false);
+  const onStartDateChange = (event, selectedDate) => {
+    setShowStartDatePicker(false);
     if (selectedDate) {
-      setNewSurvey({ ...newSurvey, endDate: selectedDate });
+      setNewSurvey({ ...newSurvey, startDate: selectedDate });
     }
   };
 
-  const addQuestion = () => {
-    setNewSurvey({
-      ...newSurvey,
-      questions: [...newSurvey.questions, { text: '', options: ['', ''] }]
-    });
-  };
-
-  const addOption = (questionIndex) => {
-    const updatedQuestions = [...newSurvey.questions];
-    updatedQuestions[questionIndex].options.push('');
-    setNewSurvey({ ...newSurvey, questions: updatedQuestions });
-  };
-
-  const updateQuestion = (index, text) => {
-    const updatedQuestions = [...newSurvey.questions];
-    updatedQuestions[index].text = text;
-    setNewSurvey({ ...newSurvey, questions: updatedQuestions });
-  };
-
-  const updateOption = (questionIndex, optionIndex, text) => {
-    const updatedQuestions = [...newSurvey.questions];
-    updatedQuestions[questionIndex].options[optionIndex] = text;
-    setNewSurvey({ ...newSurvey, questions: updatedQuestions });
-  };
-
-  const removeQuestion = (index) => {
-    if (newSurvey.questions.length > 1) {
-      const updatedQuestions = newSurvey.questions.filter((_, i) => i !== index);
-      setNewSurvey({ ...newSurvey, questions: updatedQuestions });
+  const onEndDateChange = (event, selectedDate) => {
+    setShowEndDatePicker(false);
+    if (selectedDate) {
+      setNewSurvey({ ...newSurvey, endDate: selectedDate });
     }
   };
 
@@ -213,7 +182,7 @@ const SurveysScreen = () => {
       <View style={styles.actionButtons}>
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: '#007AFF' }]}
-          onPress={() => Alert.alert('Bilgi', 'Anket sonuçları görüntülenecek')}
+          onPress={() => navigation.navigate('SurveyResults', { surveyId: item.id })}
         >
           <Text style={styles.actionButtonText}>Sonuçları Gör</Text>
         </TouchableOpacity>
@@ -221,7 +190,7 @@ const SurveysScreen = () => {
         {item.isActive && (
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: '#FF3B30' }]}
-            onPress={() => Alert.alert('Bilgi', 'Anket sonlandırılacak')}
+            onPress={() => handleCloseSurvey(item.id)}
           >
             <Text style={styles.actionButtonText}>Anketi Sonlandır</Text>
           </TouchableOpacity>
@@ -244,7 +213,7 @@ const SurveysScreen = () => {
         <Text style={styles.headerText}>Anketler</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => Alert.alert('Bilgi', 'Yeni anket oluşturma ekranı açılacak')}
+          onPress={() => setModalVisible(true)}
         >
           <Text style={styles.addButtonText}>+ Anket Ekle</Text>
         </TouchableOpacity>
@@ -267,101 +236,85 @@ const SurveysScreen = () => {
       >
         <View style={styles.modalContainer}>
           <ScrollView style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Yeni Anket Ekle</Text>
-            
+            <Text style={styles.modalTitle}>Yeni Anket Oluştur</Text>
+
+            <Text style={styles.label}>Anket Başlığı</Text>
             <TextInput
               style={styles.input}
-              placeholder="Anket Başlığı"
               value={newSurvey.title}
               onChangeText={(text) => setNewSurvey({...newSurvey, title: text})}
+              placeholder="Anket başlığını girin"
             />
 
+            <Text style={styles.label}>Açıklama</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              placeholder="Anket Açıklaması"
               value={newSurvey.description}
               onChangeText={(text) => setNewSurvey({...newSurvey, description: text})}
+              placeholder="Anket açıklamasını girin"
               multiline
               numberOfLines={4}
             />
 
-            <TextInput
-              style={styles.input}
-              placeholder="Bina ID"
-              value={newSurvey.buildingId}
-              onChangeText={(text) => setNewSurvey({...newSurvey, buildingId: text})}
-              keyboardType="numeric"
-            />
-
-            <TouchableOpacity 
+            <Text style={styles.label}>Başlangıç Tarihi</Text>
+            <TouchableOpacity
               style={styles.dateButton}
-              onPress={() => setShowDatePicker(true)}
+              onPress={() => setShowStartDatePicker(true)}
             >
-              <Text style={styles.dateButtonText}>
-                Bitiş Tarihi: {newSurvey.endDate.toLocaleDateString()}
-              </Text>
+              <Text>{newSurvey.startDate.toLocaleDateString()}</Text>
             </TouchableOpacity>
 
-            {showDatePicker && (
+            {showStartDatePicker && (
               <DateTimePicker
-                value={newSurvey.endDate}
+                value={newSurvey.startDate}
                 mode="date"
                 display="default"
-                onChange={onDateChange}
+                onChange={onStartDateChange}
                 minimumDate={new Date()}
               />
             )}
 
-            <Text style={styles.sectionTitle}>Sorular</Text>
-            {newSurvey.questions.map((question, questionIndex) => (
-              <View key={questionIndex} style={styles.questionContainer}>
-                <TextInput
-                  style={[styles.input, styles.questionInput]}
-                  placeholder={`${questionIndex + 1}. Soruyu girin`}
-                  value={question.text}
-                  onChangeText={(text) => updateQuestion(questionIndex, text)}
-                />
-                {newSurvey.questions.length > 1 && (
-                  <TouchableOpacity
-                    style={styles.removeButton}
-                    onPress={() => removeQuestion(questionIndex)}
-                  >
-                    <Text style={styles.removeButtonText}>X</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            ))}
-
-            <TouchableOpacity 
-              style={styles.addQuestionButton}
-              onPress={addQuestion}
+            <Text style={styles.label}>Bitiş Tarihi</Text>
+            <TouchableOpacity
+              style={styles.dateButton}
+              onPress={() => setShowEndDatePicker(true)}
             >
-              <Text style={styles.addQuestionButtonText}>+ Soru Ekle</Text>
+              <Text>{newSurvey.endDate.toLocaleDateString()}</Text>
             </TouchableOpacity>
 
+            {showEndDatePicker && (
+              <DateTimePicker
+                value={newSurvey.endDate}
+                mode="date"
+                display="default"
+                onChange={onEndDateChange}
+                minimumDate={newSurvey.startDate}
+              />
+            )}
+
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => {
                   setModalVisible(false);
                   setNewSurvey({
                     title: '',
                     description: '',
+                    startDate: new Date(),
                     endDate: new Date(new Date().setDate(new Date().getDate() + 7)),
-                    questions: [{ text: '', options: ['', ''] }],
-                    buildingId: '',
-                    type: 'Regular'
+                    buildingId: '1',
+                    questions: []
                   });
                 }}
               >
                 <Text style={styles.cancelButtonText}>İptal</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.modalButton, styles.saveButton]}
-                onPress={handleAddSurvey}
+                onPress={handleCreateSurvey}
               >
-                <Text style={styles.saveButtonText}>Kaydet</Text>
+                <Text style={styles.saveButtonText}>Oluştur</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -496,11 +449,12 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    padding: 20,
   },
   modalContent: {
     backgroundColor: '#fff',
-    margin: 20,
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 20,
     maxHeight: '90%',
   },
@@ -510,12 +464,18 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
+  label: {
+    fontSize: 16,
+    marginBottom: 5,
+    color: '#333',
+  },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 5,
-    padding: 10,
+    borderRadius: 8,
+    padding: 12,
     marginBottom: 15,
+    fontSize: 16,
   },
   textArea: {
     height: 100,
@@ -524,52 +484,9 @@ const styles = StyleSheet.create({
   dateButton: {
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 5,
-    padding: 10,
+    borderRadius: 8,
+    padding: 12,
     marginBottom: 15,
-  },
-  dateButtonText: {
-    color: '#333',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginVertical: 10,
-  },
-  questionContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  questionInput: {
-    flex: 1,
-    marginBottom: 0,
-  },
-  removeButton: {
-    backgroundColor: '#dc3545',
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 10,
-  },
-  removeButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  addQuestionButton: {
-    backgroundColor: '#007AFF',
-    padding: 10,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  addQuestionButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '500',
   },
   modalButtons: {
     flexDirection: 'row',
@@ -579,7 +496,7 @@ const styles = StyleSheet.create({
   modalButton: {
     flex: 1,
     padding: 15,
-    borderRadius: 5,
+    borderRadius: 8,
     marginHorizontal: 5,
   },
   cancelButton: {
@@ -591,11 +508,13 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: '#fff',
     textAlign: 'center',
+    fontSize: 16,
     fontWeight: '500',
   },
   saveButtonText: {
     color: '#fff',
     textAlign: 'center',
+    fontSize: 16,
     fontWeight: '500',
   },
 });

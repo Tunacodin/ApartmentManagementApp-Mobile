@@ -1,33 +1,50 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  ActivityIndicator,
-  Alert,
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
   Image,
   TextInput,
-  ScrollView
+  Alert,
+  ActivityIndicator,
+  Modal
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { API_ENDPOINTS, getCurrentAdminId } from '../../../config/apiConfig';
+import Button from '../../../components/ui/Button';
 
 const ProfileScreen = () => {
-  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedProfile, setEditedProfile] = useState(null);
+  const [profileData, setProfileData] = useState(null);
+  const [isEditingContact, setIsEditingContact] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  
+  // Form states
+  const [email, setEmail] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [description, setDescription] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
-  const fetchProfile = async () => {
+  const fetchProfileData = async () => {
     try {
       const adminId = getCurrentAdminId();
       const response = await axios.get(API_ENDPOINTS.ADMIN.DETAIL(adminId));
-      const profileData = response.data.data;
-      setProfile(profileData);
-      setEditedProfile(profileData);
+      
+      if (response.data.success) {
+        setProfileData(response.data.data);
+        setEmail(response.data.data.email);
+        setPhoneNumber(response.data.data.phoneNumber);
+        setDescription(response.data.data.description || '');
+      }
     } catch (error) {
-      console.error('Profil bilgileri çekilemedi:', error);
+      console.error('Profil bilgileri alınamadı:', error);
       Alert.alert('Hata', 'Profil bilgileri yüklenirken bir hata oluştu.');
     } finally {
       setLoading(false);
@@ -35,182 +52,289 @@ const ProfileScreen = () => {
   };
 
   useEffect(() => {
-    fetchProfile();
+    fetchProfileData();
   }, []);
 
   const handleUpdateProfile = async () => {
-    if (!editedProfile.fullName || !editedProfile.email) {
-      Alert.alert('Hata', 'Ad Soyad ve E-posta alanları zorunludur.');
+    try {
+      const adminId = getCurrentAdminId();
+      const response = await axios.put(
+        API_ENDPOINTS.ADMIN.PROFILE.UPDATE(adminId),
+        {
+          description,
+          profileImageUrl: profileData.profileImageUrl
+        }
+      );
+
+      if (response.data.success) {
+        Alert.alert('Başarılı', 'Profil bilgileri güncellendi');
+        setIsEditingDescription(false);
+        fetchProfileData();
+      }
+    } catch (error) {
+      Alert.alert('Hata', 'Profil güncellenirken bir hata oluştu');
+    }
+  };
+
+  const handleUpdateContact = async () => {
+    try {
+      const adminId = getCurrentAdminId();
+      const response = await axios.put(
+        API_ENDPOINTS.ADMIN.PROFILE.UPDATE_CONTACT(adminId),
+        { email, phoneNumber }
+      );
+
+      if (response.data.success) {
+        Alert.alert('Başarılı', 'İletişim bilgileri güncellendi');
+        setIsEditingContact(false);
+        fetchProfileData();
+      }
+    } catch (error) {
+      Alert.alert('Hata', 'İletişim bilgileri güncellenirken bir hata oluştu');
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Hata', 'Yeni şifreler eşleşmiyor');
       return;
     }
 
     try {
       const adminId = getCurrentAdminId();
-      const response = await axios.put(API_ENDPOINTS.ADMIN.UPDATE_PROFILE(adminId), editedProfile);
+      const response = await axios.put(
+        API_ENDPOINTS.ADMIN.PROFILE.UPDATE_PASSWORD(adminId),
+        {
+          currentPassword,
+          newPassword
+        }
+      );
+
       if (response.data.success) {
-        Alert.alert('Başarılı', 'Profil başarıyla güncellendi.');
-        setProfile(editedProfile);
-        setIsEditing(false);
+        Alert.alert('Başarılı', 'Şifreniz güncellendi');
+        setIsChangingPassword(false);
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
       }
     } catch (error) {
-      Alert.alert('Hata', 'Profil güncellenirken bir hata oluştu.');
+      Alert.alert('Hata', 'Şifre güncellenirken bir hata oluştu');
     }
   };
 
-  const handleChangePassword = async () => {
-    Alert.alert(
-      'Şifre Değiştir',
-      'Şifrenizi değiştirmek istediğinizden emin misiniz?',
-      [
-        { text: 'İptal', style: 'cancel' },
-        {
-          text: 'Değiştir',
-          onPress: () => {
-            // Şifre değiştirme modalı veya sayfası açılabilir
-            Alert.alert('Bilgi', 'Şifre değiştirme özelliği eklenecek');
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        const adminId = getCurrentAdminId();
+        const formData = new FormData();
+        formData.append('image', {
+          uri: result.assets[0].uri,
+          type: 'image/jpeg',
+          name: 'profile-image.jpg',
+        });
+
+        const response = await axios.put(
+          API_ENDPOINTS.ADMIN.PROFILE.UPDATE(adminId),
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
           }
+        );
+
+        if (response.data.success) {
+          setProfileData({ ...profileData, profileImageUrl: response.data.data.profileImageUrl });
         }
-      ]
-    );
+      }
+    } catch (error) {
+      Alert.alert('Hata', 'Profil fotoğrafı güncellenirken bir hata oluştu');
+    }
   };
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
       </View>
     );
   }
 
-  if (!profile) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text>Profil bilgileri bulunamadı.</Text>
-      </View>
-    );
-  }
-
-  const getInitials = (name) => {
-    if (!name) return '??';
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase();
-  };
-
   return (
     <ScrollView style={styles.container}>
+      {/* Profil Başlığı */}
       <View style={styles.header}>
-        <Text style={styles.headerText}>Profil</Text>
+        <View style={styles.profileImageContainer}>
+          <TouchableOpacity onPress={pickImage}>
+            {profileData?.profileImageUrl ? (
+              <Image
+                source={{ uri: profileData.profileImageUrl }}
+                style={styles.profileImage}
+              />
+            ) : (
+              <View style={[styles.profileImage, styles.noImage]}>
+                <Text style={styles.initials}>
+                  {profileData?.fullName?.split(' ').map(n => n[0]).join('')}
+                </Text>
+              </View>
+            )}
+            <View style={styles.editImageButton}>
+              <Ionicons name="camera" size={20} color="#fff" />
+            </View>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.name}>{profileData?.fullName}</Text>
+        <Text style={styles.email}>{profileData?.email}</Text>
       </View>
 
-      <View style={styles.profileContainer}>
-        <View style={styles.imageContainer}>
-          {profile.profileImage ? (
-            <Image
-              source={{ uri: profile.profileImage }}
-              style={styles.profileImage}
-            />
-          ) : (
-            <View style={styles.initialsContainer}>
-              <Text style={styles.initialsText}>
-                {getInitials(profile.fullName)}
-              </Text>
-            </View>
-          )}
+      {/* Yönetim Bilgileri */}
+      <View style={styles.statsContainer}>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{profileData?.managedBuildingsCount}</Text>
+          <Text style={styles.statLabel}>Yönetilen Bina</Text>
         </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>
+            {new Date(profileData?.lastLoginDate).toLocaleDateString()}
+          </Text>
+          <Text style={styles.statLabel}>Son Giriş</Text>
+        </View>
+      </View>
 
-        {!isEditing ? (
-          <View style={styles.infoContainer}>
-            <Text style={styles.label}>Ad Soyad</Text>
-            <Text style={styles.value}>{profile.fullName || 'Belirtilmemiş'}</Text>
-
-            <Text style={styles.label}>E-posta</Text>
-            <Text style={styles.value}>{profile.email || 'Belirtilmemiş'}</Text>
-
-            <Text style={styles.label}>Telefon</Text>
-            <Text style={styles.value}>{profile.phoneNumber || 'Belirtilmemiş'}</Text>
-
-            <Text style={styles.label}>Açıklama</Text>
-            <Text style={styles.value}>{profile.description || 'Belirtilmemiş'}</Text>
-
-            <TouchableOpacity 
-              style={styles.editButton}
-              onPress={() => setIsEditing(true)}
-            >
-              <Text style={styles.editButtonText}>Profili Düzenle</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.passwordButton}
-              onPress={() => Alert.alert(
-                'Şifre Değiştir',
-                'Şifre değiştirme özelliği yakında eklenecektir.'
-              )}
-            >
-              <Text style={styles.passwordButtonText}>Şifre Değiştir</Text>
-            </TouchableOpacity>
+      {/* Profil Bilgileri */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Profil Bilgileri</Text>
+          <TouchableOpacity onPress={() => setIsEditingDescription(!isEditingDescription)}>
+            <Ionicons name={isEditingDescription ? "close" : "create-outline"} size={24} color="#007AFF" />
+          </TouchableOpacity>
+        </View>
+        {isEditingDescription ? (
+          <View style={styles.editContainer}>
+            <TextInput
+              style={styles.input}
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Profil açıklaması"
+              multiline
+            />
+            <Button
+              title="Kaydet"
+              onPress={handleUpdateProfile}
+              variant="primary"
+            />
           </View>
         ) : (
-          <View style={styles.editContainer}>
-            <Text style={styles.label}>Ad Soyad</Text>
-            <TextInput
-              style={styles.input}
-              value={editedProfile?.fullName || ''}
-              onChangeText={(text) => setEditedProfile({...editedProfile, fullName: text})}
-              placeholder="Ad Soyad"
-            />
+          <Text style={styles.descriptionText}>
+            {profileData?.description || 'Henüz bir açıklama eklenmemiş.'}
+          </Text>
+        )}
+      </View>
 
-            <Text style={styles.label}>E-posta</Text>
+      {/* İletişim Bilgileri */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>İletişim Bilgileri</Text>
+          <TouchableOpacity onPress={() => setIsEditingContact(!isEditingContact)}>
+            <Ionicons name={isEditingContact ? "close" : "create-outline"} size={24} color="#007AFF" />
+          </TouchableOpacity>
+        </View>
+        {isEditingContact ? (
+          <View style={styles.editContainer}>
             <TextInput
               style={styles.input}
-              value={editedProfile?.email || ''}
-              onChangeText={(text) => setEditedProfile({...editedProfile, email: text})}
+              value={email}
+              onChangeText={setEmail}
               placeholder="E-posta"
               keyboardType="email-address"
             />
-
-            <Text style={styles.label}>Telefon</Text>
             <TextInput
               style={styles.input}
-              value={editedProfile?.phoneNumber || ''}
-              onChangeText={(text) => setEditedProfile({...editedProfile, phoneNumber: text})}
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
               placeholder="Telefon"
               keyboardType="phone-pad"
             />
-
-            <Text style={styles.label}>Açıklama</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={editedProfile?.description || ''}
-              onChangeText={(text) => setEditedProfile({...editedProfile, description: text})}
-              placeholder="Açıklama"
-              multiline
-              numberOfLines={4}
+            <Button
+              title="Kaydet"
+              onPress={handleUpdateContact}
+              variant="primary"
             />
-
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity 
-                style={[styles.button, styles.cancelButton]}
-                onPress={() => {
-                  setIsEditing(false);
-                  setEditedProfile(profile);
-                }}
-              >
-                <Text style={styles.cancelButtonText}>İptal</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.button, styles.saveButton]}
-                onPress={handleUpdateProfile}
-              >
-                <Text style={styles.saveButtonText}>Kaydet</Text>
-              </TouchableOpacity>
-            </View>
           </View>
+        ) : (
+          <>
+            <View style={styles.infoRow}>
+              <Ionicons name="mail-outline" size={20} color="#666" />
+              <Text style={styles.infoText}>{profileData?.email}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Ionicons name="call-outline" size={20} color="#666" />
+              <Text style={styles.infoText}>{profileData?.phoneNumber}</Text>
+            </View>
+          </>
         )}
       </View>
+
+      {/* Şifre Değiştirme */}
+      <View style={styles.section}>
+        <Button
+          title="Şifre Değiştir"
+          onPress={() => setIsChangingPassword(true)}
+          variant="outline"
+          icon={<Ionicons name="lock-closed-outline" size={20} color="#007AFF" />}
+        />
+      </View>
+
+      {/* Şifre Değiştirme Modal */}
+      <Modal
+        visible={isChangingPassword}
+        animationType="slide"
+        transparent={true}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Şifre Değiştir</Text>
+              <TouchableOpacity onPress={() => setIsChangingPassword(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.input}
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              placeholder="Mevcut Şifre"
+              secureTextEntry
+            />
+            <TextInput
+              style={styles.input}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholder="Yeni Şifre"
+              secureTextEntry
+            />
+            <TextInput
+              style={styles.input}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="Yeni Şifre (Tekrar)"
+              secureTextEntry
+            />
+            <Button
+              title="Şifreyi Güncelle"
+              onPress={handleChangePassword}
+              variant="primary"
+            />
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -220,127 +344,135 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
-  centerContainer: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   header: {
+    alignItems: 'center',
     padding: 20,
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
-  headerText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  profileContainer: {
-    backgroundColor: '#fff',
-    margin: 10,
-    borderRadius: 10,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  imageContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
+  profileImageContainer: {
+    marginBottom: 15,
   },
   profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
   },
-  initialsContainer: {
+  noImage: {
     backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
   },
-  initialsText: {
+  initials: {
     color: '#fff',
     fontSize: 36,
     fontWeight: 'bold',
   },
-  infoContainer: {
-    marginTop: 20,
+  editImageButton: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#007AFF',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  label: {
-    fontSize: 14,
-    color: '#666',
+  name: {
+    fontSize: 24,
+    fontWeight: 'bold',
     marginBottom: 5,
   },
-  value: {
+  email: {
     fontSize: 16,
-    color: '#333',
+    color: '#666',
   },
-  editButton: {
-    backgroundColor: '#007AFF',
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 20,
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: 20,
+    backgroundColor: '#fff',
+    marginTop: 1,
+  },
+  statItem: {
     alignItems: 'center',
   },
-  editButtonText: {
-    color: '#fff',
-    fontWeight: '500',
+  statValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#007AFF',
   },
-  passwordButton: {
-    backgroundColor: '#6c757d',
-    padding: 15,
-    borderRadius: 5,
-    marginTop: 20,
+  statLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+  },
+  section: {
+    backgroundColor: '#fff',
+    padding: 20,
+    marginTop: 10,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 15,
   },
-  passwordButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '500',
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   editContainer: {
-    marginTop: 20,
+    gap: 10,
   },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 5,
-    padding: 10,
-    marginBottom: 15,
+    borderRadius: 8,
+    padding: 12,
     fontSize: 16,
   },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
+  descriptionText: {
+    fontSize: 16,
+    color: '#444',
+    lineHeight: 24,
   },
-  buttonContainer: {
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  infoText: {
+    fontSize: 16,
+    color: '#444',
+    marginLeft: 10,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    gap: 15,
+  },
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
+    alignItems: 'center',
+    marginBottom: 10,
   },
-  cancelButton: {
-    backgroundColor: '#dc3545',
-  },
-  saveButton: {
-    backgroundColor: '#28a745',
-  },
-  cancelButtonText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  saveButtonText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontWeight: '500',
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
   },
 });
 

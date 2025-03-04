@@ -1,5 +1,5 @@
 // Base URL'i tanımla
-export const API_BASE_URL = "https://02bd-78-187-59-29.ngrok-free.app/api";
+export const API_BASE_URL = "https://f940-78-190-184-129.ngrok-free.app/api";
 
 // Admin ID yönetimi için global değişken ve yönetim fonksiyonları
 let currentAdminId = 4;
@@ -14,6 +14,18 @@ export const getCurrentAdminId = () => {
 
 // Endpoint'leri kategorilere ayırarak tanımla
 export const API_ENDPOINTS = {
+    // Auth endpoints
+    AUTH: {
+        LOGIN: `${API_BASE_URL}/Auth/login`,
+        REGISTER: `${API_BASE_URL}/Auth/register`,
+        FORGOT_PASSWORD: `${API_BASE_URL}/Auth/forgot-password`,
+        RESET_PASSWORD: `${API_BASE_URL}/Auth/reset-password`,
+        VERIFY_EMAIL: `${API_BASE_URL}/Auth/verify-email`,
+        REFRESH_TOKEN: `${API_BASE_URL}/Auth/refresh-token`,
+        CHANGE_PASSWORD: `${API_BASE_URL}/Auth/change-password`,
+        LOGOUT: `${API_BASE_URL}/Auth/logout`,
+    },
+
     // Admin endpoints
     ADMIN: {
         BASE: `${API_BASE_URL}/Admin`,
@@ -27,10 +39,12 @@ export const API_ENDPOINTS = {
         UNASSIGN_BUILDING: (adminId, buildingId) => `${API_BASE_URL}/Admin/${adminId}/buildings/${buildingId}/unassign`,
         ACTIVITIES: (adminId) => `${API_BASE_URL}/Admin/${adminId}/activities`,
         FINANCIAL_SUMMARIES: (adminId) => `${API_BASE_URL}/Admin/${adminId}/financial-summaries`,
-        UPDATE_PROFILE: (adminId) => `${API_BASE_URL}/Admin/${adminId}/profile`,
-        UPDATE_PASSWORD: (adminId) => `${API_BASE_URL}/Admin/${adminId}/password`,
-        UPDATE_CONTACT: (adminId) => `${API_BASE_URL}/Admin/${adminId}/contact`,
-        STATISTICS: (adminId) => `${API_BASE_URL}/Admin/${adminId}/statistics`,
+        PROFILE: {
+            GET: (adminId) => `${API_BASE_URL}/Admin/${adminId}`,
+            UPDATE: (adminId) => `${API_BASE_URL}/Admin/${adminId}/profile`,
+            UPDATE_PASSWORD: (adminId) => `${API_BASE_URL}/Admin/${adminId}/password`,
+            UPDATE_CONTACT: (adminId) => `${API_BASE_URL}/Admin/${adminId}/contact`
+        },
         NOTIFICATIONS: `${API_BASE_URL}/Admin/notifications`,
         MEETINGS: {
             BASE: `${API_BASE_URL}/Meeting`,
@@ -52,7 +66,9 @@ export const API_ENDPOINTS = {
         REJECT_TENANT_REQUEST: (requestId) => `${API_BASE_URL}/Admin/tenant-requests/${requestId}/reject`,
         REPORTS: {
             MEETINGS: (adminId) => `${API_BASE_URL}/AdminReports/${adminId}/reports/meetings`
-        }
+        },
+        DASHBOARD: (adminId) => `${API_BASE_URL}/Admin/dashboard/${adminId}`,
+        STATISTICS: (adminId) => `${API_BASE_URL}/Admin/${adminId}/statistics`,
     },
 
     // Building endpoints
@@ -111,41 +127,6 @@ export const API_ENDPOINTS = {
         DELETE: (id) => `${API_BASE_URL}/Complaint/${id}`,
         RESOLVE: (id) => `${API_BASE_URL}/Complaint/${id}/resolve`,
         ADD_COMMENT: (id) => `${API_BASE_URL}/Complaint/${id}/comment`
-    },
-
-    // User endpoints
-    USER: {
-        BASE: `${API_BASE_URL}/User`,
-        GET_ALL: `${API_BASE_URL}/User`,
-        CREATE: `${API_BASE_URL}/User`,
-        DETAIL: (id) => `${API_BASE_URL}/User/${id}`,
-        UPDATE: (id) => `${API_BASE_URL}/User/${id}`,
-        DELETE: (id) => `${API_BASE_URL}/User/${id}`,
-        BY_BUILDING: (buildingId) => `${API_BASE_URL}/User/building/${buildingId}`
-    },
-
-    // UserProfile endpoints
-    USER_PROFILE: {
-        DETAIL: (userId) => `${API_BASE_URL}/UserProfile/${userId}`,
-        UPDATE: (userId) => `${API_BASE_URL}/UserProfile/${userId}`,
-        UPDATE_PROFILE_IMAGE: (userId) => `${API_BASE_URL}/UserProfile/${userId}/profile-image`,
-        DELETE_PROFILE_IMAGE: (userId) => `${API_BASE_URL}/UserProfile/${userId}/profile-image`,
-        UPDATE_DESCRIPTION: (userId) => `${API_BASE_URL}/UserProfile/${userId}/description`,
-        UPDATE_DISPLAY_NAME: (userId) => `${API_BASE_URL}/UserProfile/${userId}/display-name`
-    },
-
-    // Tenant endpoints
-    TENANT: {
-        BASE: `${API_BASE_URL}/Tenant`,
-        DETAIL: (id) => `${API_BASE_URL}/Tenant/${id}`
-    },
-
-    // Card Info endpoints
-    CARD_INFO: {
-        BASE: `${API_BASE_URL}/CardInfo`,
-        DETAIL: (id) => `${API_BASE_URL}/CardInfo/${id}`,
-        ADD: `${API_BASE_URL}/CardInfo/add`,
-        BY_USER: (userId) => `${API_BASE_URL}/CardInfo/user/${userId}`
     },
 
     // Survey endpoints
@@ -214,6 +195,38 @@ export const handleApiError = (error) => {
         };
     }
 };
+
+// Helper fonksiyonlar
+export const getProfileResponseFormat = (data) => ({
+    data: {
+        id: data.id,
+        fullName: data.fullName,
+        email: data.email,
+        phoneNumber: data.phoneNumber,
+        role: data.role,
+        isActive: data.isActive,
+        details: {
+            // Owner details
+            iban: data.role === 'owner' ? data.details?.iban : undefined,
+            bankName: data.role === 'owner' ? data.details?.bankName : undefined,
+            
+            // Tenant details
+            apartmentId: data.role === 'tenant' ? data.details?.apartmentId : undefined,
+            leaseStartDate: data.role === 'tenant' ? data.details?.leaseStartDate : undefined,
+            leaseEndDate: data.role === 'tenant' ? data.details?.leaseEndDate : undefined,
+            monthlyRent: data.role === 'tenant' ? data.details?.monthlyRent : undefined,
+            
+            // Security details
+            buildingId: data.role === 'security' ? data.details?.buildingId : undefined,
+            shiftHours: data.role === 'security' ? data.details?.shiftHours : undefined
+        },
+        profileImageUrl: data.profileImageUrl,
+        description: data.description,
+        profileUpdatedAt: data.profileUpdatedAt
+    },
+    success: true,
+    message: "İşlem başarılı"
+});
 
 export default {
     API_BASE_URL,

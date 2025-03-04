@@ -19,10 +19,10 @@ import { API_ENDPOINTS, axiosConfig, setCurrentAdminId } from '../../config/apiC
 import axios from 'axios';
 
 
-const baseUrl = API_ENDPOINTS.USER;
+const baseUrl = API_ENDPOINTS.AUTH;
 
 const loginApi = axios.create({
-  baseURL: API_ENDPOINTS.USER.LOGIN,
+  baseURL: API_ENDPOINTS.AUTH.LOGIN,
   ...axiosConfig
 });
 
@@ -48,7 +48,7 @@ const LoginScreen = ({ navigation, route }) => {
     console.log('Giriş denemesi başladı:', {
       email: email.trim(),
       timestamp: new Date().toISOString(),
-      apiUrl: API_ENDPOINTS.USER.LOGIN
+      apiUrl: API_ENDPOINTS.AUTH.LOGIN
     });
 
     try {
@@ -58,12 +58,12 @@ const LoginScreen = ({ navigation, route }) => {
       };
 
       console.log('Sunucuya istek gönderiliyor:', {
-        url: API_ENDPOINTS.USER.LOGIN,
+        url: API_ENDPOINTS.AUTH.LOGIN,
         method: 'POST',
         body: loginDto
       });
 
-      const response = await loginApi.post('', loginDto);
+      const response = await axios.post(API_ENDPOINTS.AUTH.LOGIN, loginDto);
 
       console.log('Sunucu yanıtı alındı:', {
         status: response.status,
@@ -71,7 +71,7 @@ const LoginScreen = ({ navigation, route }) => {
         timestamp: new Date().toISOString()
       });
 
-      if (response.status === 200) {
+      if (response.data.success) {
         console.log('Giriş başarılı:', {
           userId: response.data.userId,
           email: response.data.email,
@@ -99,7 +99,7 @@ const LoginScreen = ({ navigation, route }) => {
                 if (response.data.role === 'admin') {
                   navigation.reset({
                     index: 0,
-                    routes: [{ name: 'AdminDashboard' }],
+                    routes: [{ name: 'AdminNavigator' }],
                   });
                 } else {
                   Alert.alert('Hata', 'Yetkisiz giriş denemesi');
@@ -108,15 +108,13 @@ const LoginScreen = ({ navigation, route }) => {
             },
           ]
         );
-      } else if (response.status === 401) {
-        Alert.alert('Hata', 'Geçersiz e-posta veya şifre');
       } else {
-        Alert.alert('Hata', response.data?.message || 'Bir hata oluştu');
+        Alert.alert('Hata', 'Geçersiz e-posta veya şifre');
       }
     } catch (error) {
       console.error('Giriş hatası:', {
         message: error.message,
-        url: API_ENDPOINTS.USER.LOGIN,
+        url: API_ENDPOINTS.AUTH.LOGIN,
         timestamp: new Date().toISOString()
       });
 
