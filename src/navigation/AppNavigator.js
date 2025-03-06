@@ -19,7 +19,13 @@ export default function AppNavigator() {
   return ( 
     <Stack.Navigator
       initialRouteName="AdminNavigator"
-      screenOptions={{ headerShown: false }}
+      screenOptions={{ 
+        headerShown: false,
+        contentStyle: {
+          backgroundColor: '#1A202C',
+        },
+        animation: 'slide_from_right',
+      }}
     >
       {/* İlk açılış ekranları */}
       <Stack.Screen name="Splash" component={Splash} />

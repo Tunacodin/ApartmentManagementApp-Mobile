@@ -1,358 +1,342 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
-  RefreshControl,
-  ActivityIndicator 
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import axios from 'axios';
-import { API_ENDPOINTS, getCurrentAdminId } from '../../../config/apiConfig';
+import React from 'react';
+import { ScrollView, View, StyleSheet, Dimensions } from 'react-native';
+import { Surface, Text, Card, List, useTheme, Avatar, ProgressBar, Divider } from 'react-native-paper';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { fonts } from '../../../../App';
 
-const DashboardScreen = () => {
-  const navigation = useNavigation();
-  const [dashboardData, setDashboardData] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
+// Mock data
+const mockData = {
+  statistics: {
+    totalResidents: 156,
+    activeComplaints: 8,
+    pendingPayments: 12,
+    upcomingMeetings: 3
+  },
+  activities: [
+    {
+      id: 1,
+      type: "payment",
+      title: "Aidat Ödemesi",
+      description: "A-12 Daire sakini aidatını ödedi",
+      amount: 850,
+      status: "paid",
+      date: "2024-03-15T10:30:00"
+    },
+    {
+      id: 2,
+      type: "complaint",
+      title: "Gürültü Şikayeti",
+      description: "B-5 Daire hakkında gürültü şikayeti",
+      status: "pending",
+      date: "2024-03-14T16:45:00"
+    },
+    {
+      id: 3,
+      type: "maintenance",
+      title: "Asansör Bakımı",
+      description: "Aylık rutin asansör bakımı tamamlandı",
+      amount: 1200,
+      status: "completed",
+      date: "2024-03-13T09:15:00"
+    }
+  ],
+  financialSummary: {
+    monthlyIncome: {
+      current: 45000,
+      target: 50000,
+      percentage: 90
+    },
+    expenses: {
+      current: 28000,
+      target: 35000,
+      percentage: 80
+    },
+    collections: {
+      current: 42000,
+      target: 48000,
+      percentage: 87.5
+    }
+  },
+  recentTransactions: [
+    {
+      id: 1,
+      description: "Mart Ayı Aidat Ödemeleri",
+      amount: 15000,
+      type: "income",
+      date: "2024-03-15"
+    },
+    {
+      id: 2,
+      description: "Bahçe Bakım Hizmeti",
+      amount: 2500,
+      type: "expense",
+      date: "2024-03-14"
+    },
+    {
+      id: 3,
+      description: "Güvenlik Kamera Sistemi Bakımı",
+      amount: 1800,
+      type: "expense",
+      date: "2024-03-13"
+    }
+  ]
+};
 
-  const fetchDashboardData = async () => {
-    try {
-      const adminId = getCurrentAdminId();
-      const [statisticsResponse, activitiesResponse, financialResponse] = await Promise.all([
-        axios.get(API_ENDPOINTS.ADMIN.STATISTICS(adminId)),
-        axios.get(API_ENDPOINTS.ADMIN.ACTIVITIES(adminId)),
-        axios.get(API_ENDPOINTS.ADMIN.FINANCIAL_SUMMARIES(adminId))
-      ]);
+const StatCard = ({ title, value, icon, gradient }) => {
+  const theme = useTheme();
+  return (
+    <Surface style={styles.statCard} elevation={5}>
+      <View style={{ overflow: 'hidden', borderRadius: 16 }}>
+        <LinearGradient
+          colors={gradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gradientCard}
+        >
+          <Icon name={icon} size={32} color={theme.colors.text} />
+          <Text style={[styles.statValue, { color: theme.colors.text, fontFamily: theme.fonts.regular.fontFamily }]}>{value}</Text>
+          <Text style={[styles.statTitle, { color: theme.colors.text, fontFamily: theme.fonts.bold.fontFamily }]}>{title}</Text>
+        </LinearGradient>
+      </View>
+    </Surface>
+  );
+};
 
-      console.log('Statistics API Response:', {
-        endpoint: API_ENDPOINTS.ADMIN.STATISTICS(adminId),
-        data: statisticsResponse.data
-      });
-      console.log('Activities API Response:', {
-        endpoint: API_ENDPOINTS.ADMIN.ACTIVITIES(adminId),
-        data: activitiesResponse.data
-      });
-      console.log('Financial API Response:', {
-        endpoint: API_ENDPOINTS.ADMIN.FINANCIAL_SUMMARIES(adminId),
-        data: financialResponse.data
-      });
+const FinancialCard = ({ title, current, target, percentage, gradient }) => {
+  const theme = useTheme();
+  return (
+    <Card style={[styles.financialCard, { backgroundColor: theme.colors.surface }]}>
+      <LinearGradient
+        colors={gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.gradientBorder}
+      />
+      <Card.Content style={styles.financialContent}>
+        <Text variant="titleMedium" style={{ color: theme.colors.text, fontFamily: theme.fonts.bold.fontFamily }}>{title}</Text>
+        <Text variant="headlineMedium" style={[styles.financialAmount, { color: theme.colors.text, fontFamily: theme.fonts.regular.fontFamily }]}>
+          {current.toLocaleString()} ₺
+        </Text>
+        <Text variant="bodySmall" style={{ color: theme.colors.textSecondary, fontFamily: theme.fonts.regular.fontFamily }}>
+          Hedef: {target.toLocaleString()} ₺
+        </Text>
+        <ProgressBar 
+          progress={percentage / 100} 
+          color={gradient[0]}
+          style={styles.progressBar}
+        />
+      </Card.Content>
+    </Card>
+  );
+};
 
-      setDashboardData({
-        totalResidents: statisticsResponse.data.data.totalResidents,
-        activeComplaints: statisticsResponse.data.data.activeComplaints,
-        pendingPayments: statisticsResponse.data.data.pendingPayments,
-        upcomingMeetings: statisticsResponse.data.data.upcomingMeetings,
-        recentActivities: activitiesResponse.data.data || [],
-        financialSummaries: financialResponse.data.data || []
-      });
-    } catch (error) {
-      console.error('Dashboard veri çekme hatası:', error);
-      console.error('Hata detayı:', error.response?.data || error.message);
-    } finally {
-      setLoading(false);
+const ActivityItem = ({ activity }) => {
+  const theme = useTheme();
+  
+  const getActivityIcon = (type) => {
+    switch (type) {
+      case 'payment':
+        return 'cash';
+      case 'complaint':
+        return 'alert-circle';
+      case 'maintenance':
+        return 'tools';
+      default:
+        return 'information';
     }
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchDashboardData();
-    setRefreshing(false);
+  const getStatusGradient = (status) => {
+    switch (status) {
+      case 'paid':
+      case 'completed':
+        return theme.gradients.success;
+      case 'pending':
+        return theme.gradients.warning;
+      default:
+        return [theme.colors.textSecondary, theme.colors.textSecondary];
+    }
   };
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const StatBox = ({ icon, number, label, color }) => (
-    <View style={styles.statBox}>
-      <MaterialCommunityIcons name={icon} size={24} color={color} />
-      <Text style={[styles.statNumber, { color }]}>{number}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-
-  const ActivityItem = ({ activity }) => {
-    const getStatusColor = (status) => {
-      switch (status.toLowerCase()) {
-        case 'paid':
-        case 'ödendi':
-          return '#34C759';
-        case 'pending':
-        case 'bekliyor':
-          return '#FF9500';
-        default:
-          return '#8E8E93';
-      }
-    };
-
-    const formatDate = (dateString) => {
-      return new Date(dateString).toLocaleDateString('tr-TR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    };
-
-    const getActivityTypeText = (type) => {
-      switch (type.toLowerCase()) {
-        case 'payment':
-          return 'Ödeme';
-        case 'complaint':
-          return 'Şikayet';
-        case 'meeting':
-          return 'Toplantı';
-        case 'announcement':
-          return 'Duyuru';
-        default:
-          return type;
-      }
-    };
-
-    return (
-      <View style={styles.activityItem}>
-        <View style={styles.activityHeader}>
-          <Text style={styles.activityType}>
-            {getActivityTypeText(activity.activityType)}
-          </Text>
-          <Text style={[styles.activityStatus, { color: getStatusColor(activity.status) }]}>
-            {activity.status === 'Paid' ? 'Ödendi' : 
-             activity.status === 'Pending' ? 'Bekliyor' : 
-             activity.status}
-          </Text>
-        </View>
-        <Text style={styles.activityDescription}>{activity.description}</Text>
-        <View style={styles.activityFooter}>
-          <Text style={styles.activityDate}>{formatDate(activity.activityDate)}</Text>
-          <Text style={styles.activityUser}>{activity.relatedUserName}</Text>
-        </View>
-      </View>
-    );
-  };
-
-  const BuildingCard = ({ building }) => (
-    <TouchableOpacity 
-      style={styles.buildingCard}
-      onPress={() => navigation.navigate('BuildingDetail', { buildingId: building.id })}
-    >
-      <Text style={styles.buildingName}>{building.buildingName}</Text>
-      <View style={styles.buildingStats}>
-        <View style={styles.buildingStat}>
-          <Text style={styles.buildingStatLabel}>Daireler</Text>
-          <Text style={styles.buildingStatValue}>{building.totalApartments}</Text>
-        </View>
-        <View style={styles.buildingStat}>
-          <Text style={styles.buildingStatLabel}>Doluluk</Text>
-          <Text style={styles.buildingStatValue}>%{(building.occupancyRate * 100).toFixed(0)}</Text>
-        </View>
-        <View style={styles.buildingStat}>
-          <Text style={styles.buildingStatLabel}>Ödemeler</Text>
-          <Text style={styles.buildingStatValue}>{building.pendingPayments}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-
-  const FinancialSummaryCard = ({ summary }) => {
-    const collectionRateColor = summary.collectionRate >= 80 ? '#34C759' : 
-                               summary.collectionRate >= 50 ? '#FF9500' : '#FF3B30';
-    
-    const formatCurrency = (amount) => {
-      return new Intl.NumberFormat('tr-TR', {
-        style: 'currency',
-        currency: 'TRY',
-        minimumFractionDigits: 2
-      }).format(amount);
-    };
-
-    return (
-      <View style={styles.financialCard}>
-        <Text style={styles.buildingName}>{summary.buildingName}</Text>
-        
-        <View style={styles.financialRow}>
-          <View style={styles.financialItem}>
-            <Text style={styles.financialLabel}>Beklenen Gelir</Text>
-            <Text style={styles.financialValue}>{formatCurrency(summary.expectedIncome)}</Text>
-          </View>
-          <View style={styles.financialItem}>
-            <Text style={styles.financialLabel}>Tahsilat Oranı</Text>
-            <Text style={[styles.financialValue, { color: collectionRateColor }]}>
-              %{summary.collectionRate}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.financialRow}>
-          <View style={styles.financialItem}>
-            <Text style={styles.financialLabel}>Tahsil Edilen</Text>
-            <Text style={[styles.financialValue, { color: '#34C759' }]}>
-              {formatCurrency(summary.collectedAmount)}
-            </Text>
-          </View>
-          <View style={styles.financialItem}>
-            <Text style={styles.financialLabel}>Bekleyen</Text>
-            <Text style={[styles.financialValue, { color: '#FF3B30' }]}>
-              {formatCurrency(summary.pendingAmount)}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.financialRow}>
-          <View style={styles.financialItem}>
-            <Text style={styles.financialLabel}>Toplam Ödeme</Text>
-            <Text style={styles.financialValue}>{summary.totalPayments}</Text>
-          </View>
-          <View style={styles.financialItem}>
-            <Text style={styles.financialLabel}>Bekleyen Ödeme</Text>
-            <Text style={[styles.financialValue, { color: summary.pendingPayments > 0 ? '#FF3B30' : '#34C759' }]}>
-              {summary.pendingPayments}
-            </Text>
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-      </View>
-    );
-  }
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      <LinearGradient
-        colors={['#007AFF', '#00C6FF']}
-        style={styles.header}
-      >
-        <Text style={styles.headerText}>Yönetici Paneli</Text>
-      </LinearGradient>
+    <List.Item
+      style={styles.activityItem}
+      title={props => (
+        <Text style={{ color: theme.colors.text, fontFamily: theme.fonts.regular.fontFamily }}>{activity.title}</Text>
+      )}
+      description={props => (
+        <Text style={{ color: theme.colors.textSecondary, fontFamily: theme.fonts.regular.fontFamily }}>{activity.description}</Text>
+      )}
+      left={props => (
+        <View style={styles.activityIconContainer}>
+          <LinearGradient
+            colors={getStatusGradient(activity.status)}
+            style={styles.activityIconGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Icon name={getActivityIcon(activity.type)} size={24} color={theme.colors.text} />
+          </LinearGradient>
+        </View>
+      )}
+      right={props => (
+        <View style={styles.activityRight}>
+          <Text style={{ color: theme.colors.textSecondary, fontFamily: theme.fonts.regular.fontFamily }}>
+            {new Date(activity.date).toLocaleDateString('tr-TR')}
+          </Text>
+          {activity.amount && (
+            <Text style={{ color: theme.colors.text, fontFamily: theme.fonts.regular.fontFamily }}>
+              {activity.amount} ₺
+            </Text>
+          )}
+        </View>
+      )}
+    />
+  );
+};
 
+const DashboardScreen = () => {
+  const theme = useTheme();
+  
+  return (
+    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Text variant="headlineMedium" style={[styles.header, { color: theme.colors.text, fontFamily: theme.fonts.bold.fontFamily }]}>
+        Site Yönetim Paneli
+      </Text>
+      
       <View style={styles.statsContainer}>
-        <StatBox 
-          icon="account-group" 
-          number={dashboardData?.totalResidents || 0}
-          label="Toplam Sakin"
-          color="#007AFF"
+        <StatCard
+          title="Toplam Sakin"
+          value={mockData.statistics.totalResidents}
+          icon="account-group"
+          gradient={theme.gradients.primary}
         />
-        <StatBox 
-          icon="alert-circle" 
-          number={dashboardData?.activeComplaints || 0}
-          label="Aktif Şikayet"
-          color="#FF3B30"
+        <StatCard
+          title="Aktif Şikayet"
+          value={mockData.statistics.activeComplaints}
+          icon="alert-circle"
+          gradient={theme.gradients.warning}
         />
-        <StatBox 
-          icon="cash-multiple" 
-          number={dashboardData?.pendingPayments || 0}
-          label="Bekleyen Ödeme"
-          color="#FF9500"
+        <StatCard
+          title="Bekleyen Ödeme"
+          value={mockData.statistics.pendingPayments}
+          icon="cash-multiple"
+          gradient={theme.gradients.danger}
         />
-        <StatBox 
-          icon="calendar-clock" 
-          number={dashboardData?.upcomingMeetings || 0}
-          label="Yaklaşan Toplantı"
-          color="#34C759"
+        <StatCard
+          title="Yaklaşan Toplantı"
+          value={mockData.statistics.upcomingMeetings}
+          icon="calendar"
+          gradient={theme.gradients.success}
         />
       </View>
 
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Son Aktiviteler</Text>
-          <TouchableOpacity 
-            style={styles.seeAllButton}
-            onPress={() => navigation.navigate('Activities')}
-          >
-            <Text style={styles.seeAllText}>Tümünü Gör</Text>
-            <MaterialCommunityIcons name="chevron-right" size={24} color="#007AFF" />
-          </TouchableOpacity>
-        </View>
-        {Array.isArray(dashboardData?.recentActivities) ? 
-          dashboardData.recentActivities.slice(0, 5).map((activity, index) => (
-            <ActivityItem key={index} activity={activity} />
-          )) : 
-          <Text style={styles.emptyText}>Henüz aktivite kaydı bulunmuyor</Text>
-        }
+      <View style={styles.financialContainer}>
+        <FinancialCard
+          title="Aylık Gelir"
+          current={mockData.financialSummary.monthlyIncome.current}
+          target={mockData.financialSummary.monthlyIncome.target}
+          percentage={mockData.financialSummary.monthlyIncome.percentage}
+          gradient={theme.gradients.success}
+        />
+        <FinancialCard
+          title="Giderler"
+          current={mockData.financialSummary.expenses.current}
+          target={mockData.financialSummary.expenses.target}
+          percentage={mockData.financialSummary.expenses.percentage}
+          gradient={theme.gradients.danger}
+        />
+        <FinancialCard
+          title="Tahsilatlar"
+          current={mockData.financialSummary.collections.current}
+          target={mockData.financialSummary.collections.target}
+          percentage={mockData.financialSummary.collections.percentage}
+          gradient={theme.gradients.primary}
+        />
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Yönetilen Binalar</Text>
-        {Array.isArray(dashboardData?.buildingSummaries) ? 
-          dashboardData.buildingSummaries.map((building, index) => (
-            <BuildingCard key={index} building={building} />
-          )) : 
-          <Text style={styles.emptyText}>Henüz bina kaydı bulunmuyor</Text>
-        }
-      </View>
+      <Card style={[styles.activitiesCard, { backgroundColor: theme.colors.surface }]}>
+        <Card.Title 
+          title="Son Aktiviteler" 
+          titleStyle={{ color: theme.colors.text, fontFamily: theme.fonts.bold.fontFamily }}
+        />
+        <Card.Content>
+          {(() => {
+            if (!Array.isArray(mockData?.activities) || mockData.activities.length === 0) {
+              return (
+                <Text style={{ color: theme.colors.textSecondary, fontFamily: theme.fonts.regular.fontFamily }}>
+                  Aktivite bulunamadı
+                </Text>
+              );
+            }
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Yaklaşan Toplantılar</Text>
-        {Array.isArray(dashboardData?.upcomingMeetings) ? 
-          dashboardData.upcomingMeetings.map((meeting, index) => (
-            <View key={index} style={styles.meetingItem}>
-              <Text style={styles.meetingTitle}>{meeting.title}</Text>
-              <Text style={styles.meetingDate}>
-                {new Date(meeting.date).toLocaleDateString('tr-TR', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </Text>
-              <Text style={styles.meetingBuilding}>{meeting.buildingName}</Text>
-            </View>
-          )) : 
-          <Text style={styles.emptyText}>Yaklaşan toplantı bulunmuyor</Text>
-        }
-      </View>
+            const activityElements = [];
+            for (let i = 0; i < mockData.activities.length; i++) {
+              const activity = mockData.activities[i];
+              activityElements.push(
+                <React.Fragment key={activity.id || i}>
+                  <ActivityItem activity={activity} />
+                  {i < mockData.activities.length - 1 && (
+                    <Divider style={{ backgroundColor: theme.colors.textSecondary, opacity: 0.1 }} />
+                  )}
+                </React.Fragment>
+              );
+            }
+            return activityElements;
+          })()}
+        </Card.Content>
+      </Card>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Finansal Özet</Text>
-        {Array.isArray(dashboardData?.financialSummaries) ? 
-          dashboardData.financialSummaries.map((summary, index) => (
-            <FinancialSummaryCard key={index} summary={summary} />
-          )) : 
-          <Text style={styles.emptyText}>Henüz finansal veri bulunmuyor</Text>
-        }
-      </View>
+      <Card style={[styles.transactionsCard, { backgroundColor: theme.colors.surface }]}>
+        <Card.Title 
+          title="Son İşlemler"
+          titleStyle={{ color: theme.colors.text, fontFamily: theme.fonts.bold.fontFamily }}
+        />
+        <Card.Content>
+          {(() => {
+            if (!Array.isArray(mockData?.recentTransactions) || mockData.recentTransactions.length === 0) {
+              return (
+                <Text style={{ color: theme.colors.textSecondary, fontFamily: theme.fonts.regular.fontFamily }}>
+                  İşlem bulunamadı
+                </Text>
+              );
+            }
 
-      <View style={styles.quickActions}>
-        <Text style={styles.sectionTitle}>Hızlı İşlemler</Text>
-        <View style={styles.actionGrid}>
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('CreateMeeting')}
-          >
-            <MaterialCommunityIcons name="calendar-plus" size={24} color="white" />
-            <Text style={styles.actionButtonText}>Toplantı Oluştur</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('CreateAnnouncement')}
-          >
-            <MaterialCommunityIcons name="bullhorn" size={24} color="white" />
-            <Text style={styles.actionButtonText}>Duyuru Oluştur</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('CreateNotification')}
-          >
-            <MaterialCommunityIcons name="bell-plus" size={24} color="white" />
-            <Text style={styles.actionButtonText}>Bildirim Gönder</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+            const transactionElements = [];
+            for (let i = 0; i < mockData.recentTransactions.length; i++) {
+              const transaction = mockData.recentTransactions[i];
+              transactionElements.push(
+                <List.Item
+                  key={transaction.id || i}
+                  title={props => (
+                    <Text style={{ color: theme.colors.text, fontFamily: theme.fonts.regular.fontFamily }}>
+                      {transaction.description || 'İşlem detayı'}
+                    </Text>
+                  )}
+                  description={props => (
+                    <Text style={{ color: theme.colors.textSecondary, fontFamily: theme.fonts.regular.fontFamily }}>
+                      {transaction.date ? new Date(transaction.date).toLocaleDateString('tr-TR') : '-'}
+                    </Text>
+                  )}
+                  right={() => (
+                    <Text
+                      style={{
+                        color: transaction.type === 'income' ? theme.colors.success : theme.colors.error,
+                        fontFamily: theme.fonts.regular.fontFamily,
+                      }}
+                    >
+                      {transaction.type === 'income' ? '+' : '-'} {transaction.amount || 0} ₺
+                    </Text>
+                  )}
+                  style={styles.transactionItem}
+                />
+              );
+            }
+            return transactionElements;
+          })()}
+        </Card.Content>
+      </Card>
     </ScrollView>
   );
 };
@@ -360,222 +344,88 @@ const DashboardScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 16,
   },
   header: {
-    padding: 20,
-    paddingTop: 40,
-  },
-  headerText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
+    marginBottom: 24,
+    fontSize: 32,
   },
   statsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    padding: 10,
     justifyContent: 'space-between',
+    marginBottom: 24,
   },
-  statBox: {
+  statCard: {
     width: '48%',
-    backgroundColor: 'white',
-    padding: 15,
-    marginBottom: 10,
-    borderRadius: 10,
+    marginBottom: 16,
+  },
+  gradientCard: {
+    padding: 20,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: 16,
   },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginVertical: 5,
+  statValue: {
+    fontSize: 28,
+    marginVertical: 8,
   },
-  statLabel: {
+  statTitle: {
     fontSize: 14,
-    color: '#666',
+    opacity: 0.9,
   },
-  section: {
-    padding: 15,
-    backgroundColor: 'white',
-    marginTop: 10,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#333',
-  },
-  activityItem: {
-    backgroundColor: '#f8f9fa',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: '#007AFF',
-  },
-  activityHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  activityType: {
-    fontWeight: 'bold',
-    color: '#007AFF',
-    fontSize: 14,
-  },
-  activityStatus: {
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  activityDescription: {
-    fontSize: 15,
-    color: '#333',
-    marginBottom: 8,
-  },
-  activityFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 5,
-  },
-  activityUser: {
-    fontSize: 13,
-    color: '#007AFF',
-    fontWeight: '500',
-  },
-  activityDate: {
-    fontSize: 12,
-    color: '#666',
-  },
-  buildingCard: {
-    backgroundColor: '#f8f9fa',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  buildingName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  buildingStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  buildingStat: {
-    alignItems: 'center',
-  },
-  buildingStatLabel: {
-    fontSize: 12,
-    color: '#666',
-  },
-  buildingStatValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#007AFF',
-  },
-  meetingItem: {
-    backgroundColor: '#f8f9fa',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  meetingTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  meetingDate: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
-  },
-  meetingBuilding: {
-    fontSize: 12,
-    color: '#666',
-  },
-  quickActions: {
-    padding: 15,
-    backgroundColor: 'white',
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  actionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  actionButton: {
-    width: '31%',
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  actionButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginTop: 5,
-    textAlign: 'center',
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
+  financialContainer: {
+    marginBottom: 24,
   },
   financialCard: {
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
-  financialStats: {
-    // Add appropriate styles for financialStats
+  financialContent: {
+    padding: 16,
   },
-  financialRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
+  gradientBorder: {
+    height: 4,
+    width: '100%',
   },
-  financialStat: {
+  financialAmount: {
+    marginVertical: 8,
+    fontSize: 32,
+  },
+  progressBar: {
+    height: 8,
+    borderRadius: 4,
+    marginTop: 12,
+  },
+  activitiesCard: {
+    marginBottom: 24,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  activityItem: {
+    paddingVertical: 12,
+  },
+  activityIconContainer: {
+    marginRight: 12,
+  },
+  activityIconGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  financialLabel: {
-    fontSize: 12,
-    color: '#666',
+  activityRight: {
+    alignItems: 'flex-end',
   },
-  financialValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#007AFF',
+  transactionsCard: {
+    marginBottom: 90,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
-  seeAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  seeAllText: {
-    color: '#007AFF',
-    fontSize: 14,
-    marginRight: 4,
-  },
+  transactionItem: {
+    paddingVertical: 8,
+  }
 });
 
 export default DashboardScreen;

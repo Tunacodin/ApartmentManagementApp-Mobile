@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { View, StyleSheet, Dimensions, Pressable, Text, Animated, TouchableOpacity } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { BlurView } from 'expo-blur';
 
 // Dashboard Screens
 import DashboardScreen from '../screens/admin/Dashboard/DashboardScreen';
@@ -35,6 +37,26 @@ import ProfileScreen from '../screens/admin/Profile/ProfileScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+// Modern color palette
+const colors = {
+  primary: '#6366F1',
+  secondary: '#8B5CF6',
+  background: 'rgba(255, 255, 255, 0.9)',
+  surface: 'rgba(255, 255, 255, 0.95)',
+  text: '#1E293B',
+  textSecondary: '#64748B',
+  active: 'rgba(255, 255, 255, 0.95)',
+  inactive: '#94A3B8',
+  gradientStart: '#6366F1',
+  gradientEnd: '#8B5CF6',
+  fabActive: '#EC4899',
+  fabInactive: '#94A3B8',
+  fabBackground: 'rgba(255, 255, 255, 0.95)',
+  menuBackground: 'rgba(255, 255, 255, 0.98)',
+  navActive: 'rgba(255, 255, 255, 0.95)',
+  navInactive: '#94A3B8',
+};
 
 // Dashboard Stack Navigator
 const DashboardStack = () => (
@@ -88,53 +110,240 @@ const ProfileStack = () => (
   </Stack.Navigator>
 );
 
+const CustomTabBar = ({ state, descriptors, navigation }) => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const rotateAnim = React.useRef(new Animated.Value(0)).current;
+  const menuAnim = React.useRef(new Animated.Value(0)).current;
+
+  const toggleMenu = () => {
+    const toValue = isMenuOpen ? 0 : 1;
+    
+    Animated.parallel([
+      Animated.spring(rotateAnim, {
+        toValue,
+        useNativeDriver: true,
+        tension: 40,
+        friction: 7,
+      }),
+      Animated.spring(menuAnim, {
+        toValue,
+        useNativeDriver: true,
+        tension: 40,
+        friction: 7,
+      }),
+    ]).start();
+
+    setIsMenuOpen(!isMenuOpen);
+  };
+
+  const rotation = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '45deg'],
+  });
+
+  const menuItemsStyle = {
+    transform: [
+      {
+        translateY: menuAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, -60],
+        }),
+      },
+    ],
+    opacity: menuAnim,
+  };
+
+  const renderFABMenu = () => (
+    <View style={styles.fabContainer}>
+      <Animated.View style={[styles.fabMenuItem, menuItemsStyle]}>
+        <BlurView intensity={90} tint="light" style={[styles.menuItemBlur, { backgroundColor: colors.menuBackground }]}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              toggleMenu();
+              navigation.navigate('CreateMeeting');
+            }}
+          >
+            <View style={[styles.menuItemIcon, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
+              <Ionicons name="calendar" size={18} color={colors.primary} />
+            </View>
+            <Text style={styles.menuItemText}>Toplantı Oluştur</Text>
+          </TouchableOpacity>
+        </BlurView>
+      </Animated.View>
+
+      <Animated.View 
+        style={[
+          styles.fabMenuItem, 
+          {
+            transform: [
+              {
+                translateY: menuAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -120],
+                }),
+              },
+            ],
+            opacity: menuAnim,
+          }
+        ]}
+      >
+        <BlurView intensity={90} tint="light" style={[styles.menuItemBlur, { backgroundColor: colors.menuBackground }]}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              toggleMenu();
+              navigation.navigate('CreateAnnouncement');
+            }}
+          >
+            <View style={[styles.menuItemIcon, { backgroundColor: 'rgba(236, 72, 153, 0.1)' }]}>
+              <Ionicons name="megaphone" size={18} color={colors.fabActive} />
+            </View>
+            <Text style={styles.menuItemText}>Duyuru Oluştur</Text>
+          </TouchableOpacity>
+        </BlurView>
+      </Animated.View>
+
+      <Animated.View 
+        style={[
+          styles.fabMenuItem,
+          {
+            transform: [
+              {
+                translateY: menuAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -180],
+                }),
+              },
+            ],
+            opacity: menuAnim,
+          }
+        ]}
+      >
+        <BlurView intensity={90} tint="light" style={[styles.menuItemBlur, { backgroundColor: colors.menuBackground }]}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              toggleMenu();
+              navigation.navigate('Surveys');
+            }}
+          >
+            <View style={[styles.menuItemIcon, { backgroundColor: 'rgba(139, 92, 246, 0.1)' }]}>
+              <Ionicons name="clipboard" size={18} color={colors.secondary} />
+            </View>
+            <Text style={styles.menuItemText}>Anket Oluştur</Text>
+          </TouchableOpacity>
+        </BlurView>
+      </Animated.View>
+
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={toggleMenu}
+      >
+        <BlurView intensity={90} tint="light" style={[styles.fabBlur, { backgroundColor: colors.fabBackground }]}>
+          <Animated.View style={{ transform: [{ rotate: rotation }] }}>
+            <Ionicons name="add" size={30} color={isMenuOpen ? colors.fabActive : colors.primary} />
+          </Animated.View>
+        </BlurView>
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <View style={styles.tabBarContainer}>
+      {renderFABMenu()}
+      <BlurView intensity={50} tint="light" style={styles.blurView}>
+        <View style={styles.tabBar}>
+          {state.routes.map((route, index) => {
+            const { options } = descriptors[route.key];
+            const label =
+              options.tabBarLabel !== undefined
+                ? options.tabBarLabel
+                : options.title !== undefined
+                ? options.title
+                : route.name;
+
+            const isFocused = state.index === index;
+
+            const onPress = () => {
+              const event = navigation.emit({
+                type: 'tabPress',
+                target: route.key,
+                canPreventDefault: true,
+              });
+
+              if (!isFocused && !event.defaultPrevented) {
+                navigation.navigate(route.name);
+              }
+            };
+
+            let iconName;
+            switch (route.name) {
+              case 'Dashboard':
+                iconName = isFocused ? 'home' : 'home-outline';
+                break;
+              case 'Management':
+                iconName = isFocused ? 'business' : 'business-outline';
+                break;
+              case 'Finance':
+                iconName = isFocused ? 'wallet' : 'wallet-outline';
+                break;
+              case 'Reports':
+                iconName = isFocused ? 'stats-chart' : 'stats-chart-outline';
+                break;
+              case 'Profile':
+                iconName = isFocused ? 'person' : 'person-outline';
+                break;
+              default:
+                iconName = 'ellipse';
+            }
+
+            return (
+              <Pressable
+                key={index}
+                onPress={onPress}
+                style={[
+                  styles.tabButton,
+                  isFocused && styles.tabButtonActive
+                ]}
+              >
+                <Ionicons
+                  name={iconName}
+                  size={28}
+                  color={isFocused ? colors.active : colors.inactive}
+                  style={styles.tabIcon}
+                />
+                <Text 
+                  numberOfLines={1} 
+                  style={[
+                    styles.tabLabelText,
+                    { color: isFocused ? colors.active : colors.inactive }
+                  ]}
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </BlurView>
+    </View>
+  );
+};
+
 // Bottom Tab Navigator
 const AdminTabs = () => (
   <Tab.Navigator
-    screenOptions={({ route }) => ({
+    tabBar={props => <CustomTabBar {...props} />}
+    screenOptions={{
       headerShown: false,
-      tabBarIcon: ({ focused, color, size }) => {
-        let iconName;
-
-        switch (route.name) {
-          case 'Dashboard':
-            iconName = focused ? 'home' : 'home-outline';
-            break;
-          case 'Management':
-            iconName = focused ? 'business' : 'business-outline';
-            break;
-          case 'Finance':
-            iconName = focused ? 'wallet' : 'wallet-outline';
-            break;
-          case 'Reports':
-            iconName = focused ? 'stats-chart' : 'stats-chart-outline';
-            break;
-          case 'Profile':
-            iconName = focused ? 'person' : 'person-outline';
-            break;
-          default:
-            iconName = 'ellipse';
-        }
-
-        return <Ionicons name={iconName} size={size} color={color} />;
-      },
-      tabBarActiveTintColor: '#007AFF',
-      tabBarInactiveTintColor: 'gray',
-      tabBarStyle: {
-        height: 60,
-        paddingBottom: 10,
-        paddingTop: 10,
-      },
-      tabBarLabelStyle: {
-        fontSize: 12,
-      },
-    })}
+    }}
   >
     <Tab.Screen 
       name="Dashboard" 
       component={DashboardStack}
       options={{
-        title: 'Ana Sayfa',
+        title: 'AnaSayfa',
       }}
     />
     <Tab.Screen 
@@ -174,12 +383,134 @@ const AdminNavigator = () => (
     screenOptions={{ 
       headerShown: false,
       contentStyle: {
-        backgroundColor: '#fff',
+        backgroundColor: '#1A202C',
       },
     }}
   >
     <Stack.Screen name="AdminTabs" component={AdminTabs} />
   </Stack.Navigator>
 );
+
+const styles = StyleSheet.create({
+  tabBarContainer: {
+    position: 'absolute',
+    bottom: 5,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  blurView: {
+    width: '92%',
+    borderRadius: 20,
+    overflow: 'hidden',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 6.27,
+  },
+  tabBar: {
+    flexDirection: 'row',
+  
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    marginHorizontal: 3,
+  },
+  tabButtonActive: {
+    backgroundColor: 'transparent',
+  },
+  tabIcon: {
+    marginBottom: 4,
+  },
+  tabLabelText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'center',
+    maxWidth: '100%',
+  },
+  fabContainer: {
+    position: 'absolute',
+    right: 20,
+    bottom: 100,
+    alignItems: 'center',
+    zIndex: 999,
+  },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  fabBlur: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fabMenuItem: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 180,
+  },
+  menuItemBlur: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 10,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 3.84,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    padding: 12,
+   
+  },
+  menuItemText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+    flex: 1,
+  },
+  menuItemIcon: {
+    width: 34,
+    height: 32,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
 
 export default AdminNavigator;
