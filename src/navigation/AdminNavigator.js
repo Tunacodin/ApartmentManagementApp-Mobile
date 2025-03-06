@@ -277,26 +277,26 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
               }
             };
 
-            let iconName;
-            switch (route.name) {
-              case 'Dashboard':
+        let iconName;
+        switch (route.name) {
+          case 'Dashboard':
                 iconName = isFocused ? 'home' : 'home-outline';
-                break;
-              case 'Management':
+            break;
+          case 'Management':
                 iconName = isFocused ? 'business' : 'business-outline';
-                break;
-              case 'Finance':
+            break;
+          case 'Finance':
                 iconName = isFocused ? 'wallet' : 'wallet-outline';
-                break;
-              case 'Reports':
+            break;
+          case 'Reports':
                 iconName = isFocused ? 'stats-chart' : 'stats-chart-outline';
-                break;
-              case 'Profile':
+            break;
+          case 'Profile':
                 iconName = isFocused ? 'person' : 'person-outline';
-                break;
-              default:
-                iconName = 'ellipse';
-            }
+            break;
+          default:
+            iconName = 'ellipse';
+        }
 
             return (
               <Pressable

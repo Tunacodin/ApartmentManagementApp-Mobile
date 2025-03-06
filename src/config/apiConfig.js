@@ -1,5 +1,5 @@
 // Base URL'i tanımla
-export const API_BASE_URL = "https://f940-78-190-184-129.ngrok-free.app/api";
+export const API_BASE_URL = "https://020d-78-187-59-29.ngrok-free.app/api";
 
 // Admin ID yönetimi için global değişken ve yönetim fonksiyonları
 let currentAdminId = 4;
@@ -67,7 +67,7 @@ export const API_ENDPOINTS = {
         REPORTS: {
             MEETINGS: (adminId) => `${API_BASE_URL}/AdminReports/${adminId}/reports/meetings`
         },
-        DASHBOARD: (adminId) => `${API_BASE_URL}/Admin/dashboard/${adminId}`,
+        ENHANCED_DASHBOARD: (adminId) => `${API_BASE_URL}/Admin/enhanced-dashboard/${adminId}`,
         STATISTICS: (adminId) => `${API_BASE_URL}/Admin/${adminId}/statistics`,
     },
 
