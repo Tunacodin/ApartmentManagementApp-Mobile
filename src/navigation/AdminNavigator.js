@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { BlurView } from 'expo-blur';
-
+import { Fonts } from '../constants/Theme';
 // Dashboard Screens
 import DashboardScreen from '../screens/admin/Dashboard/DashboardScreen';
 import CreateMeetingScreen from '../screens/admin/Dashboard/CreateMeetingScreen';
@@ -58,9 +58,22 @@ const colors = {
   navInactive: '#94A3B8',
 };
 
+// Common header options with EVIN title
+const screenOptions = {
+  headerShown: true,
+  headerTitle: () => (
+    <Text style={styles.headerTitle}>EVIN</Text>
+  ),
+  headerTitleAlign: 'center',
+  headerStyle: {
+    backgroundColor: 'transparent',
+  },
+  headerShadowVisible: false,
+};
+
 // Dashboard Stack Navigator
 const DashboardStack = () => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
+  <Stack.Navigator screenOptions={screenOptions}>
     <Stack.Screen name="DashboardMain" component={DashboardScreen} />
     <Stack.Screen name="Activities" component={ActivitiesScreen} />
     <Stack.Screen name="CreateMeeting" component={CreateMeetingScreen} />
@@ -71,7 +84,7 @@ const DashboardStack = () => (
 
 // Management Stack Navigator
 const ManagementStack = () => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
+  <Stack.Navigator screenOptions={screenOptions}>
     <Stack.Screen name="ManagementMain" component={ManagementScreen} />
     <Stack.Screen name="Apartments" component={ApartmentsScreen} />
     <Stack.Screen name="Users" component={UsersScreen} />
@@ -85,7 +98,7 @@ const ManagementStack = () => (
 
 // Finance Stack Navigator
 const FinanceStack = () => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
+  <Stack.Navigator screenOptions={screenOptions}>
     <Stack.Screen name="FinanceMain" component={FinanceScreen} />
     <Stack.Screen name="Dues" component={DuesScreen} />
     <Stack.Screen name="Expenses" component={ExpensesScreen} />
@@ -96,7 +109,7 @@ const FinanceStack = () => (
 
 // Reports Stack Navigator
 const ReportsStack = () => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
+  <Stack.Navigator screenOptions={screenOptions}>
     <Stack.Screen name="ReportsMain" component={ReportsScreen} />
     <Stack.Screen name="MeetingAttendance" component={MeetingAttendanceScreen} />
     <Stack.Screen name="SurveyResults" component={SurveyResultsScreen} />
@@ -105,7 +118,7 @@ const ReportsStack = () => (
 
 // Profile Stack Navigator
 const ProfileStack = () => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
+  <Stack.Navigator screenOptions={screenOptions}>
     <Stack.Screen name="ProfileMain" component={ProfileScreen} />
   </Stack.Navigator>
 );
@@ -510,6 +523,13 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.menuBackground,
+    letterSpacing: 2,
+    fontFamily:"Lato-Bold",
   },
 });
 

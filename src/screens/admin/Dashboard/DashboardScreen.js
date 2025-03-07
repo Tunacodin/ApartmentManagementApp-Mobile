@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { ScrollView, View, StyleSheet, Dimensions, TouchableOpacity, Modal, Animated } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { ScrollView, View, StyleSheet, Dimensions, TouchableOpacity, Modal, Animated, FlatList } from 'react-native';
 import { Surface, Text, Card, List, useTheme, Avatar, ProgressBar, Divider, Button, Badge } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { fonts ,theme} from '../../../../App';
+import { Fonts, Colors, Gradients, Theme as AppTheme } from '../../../constants';
 import axios from 'axios';
 import { API_ENDPOINTS, getCurrentAdminId } from '../../../config/apiConfig';
 
 const StatCard = ({ title, value, icon, gradient }) => {
   const theme = useTheme();
   return (
-    <Surface style={styles.statCard} elevation={5}>
+    <Surface style={[styles.statCard, { backgroundColor: "transparent"}]} elevation={5}>
       <View style={{ overflow: 'hidden', borderRadius: 16 }}>
         <LinearGradient
           colors={gradient}
@@ -19,8 +19,8 @@ const StatCard = ({ title, value, icon, gradient }) => {
           style={styles.gradientCard}
         >
           <Icon name={icon} size={32} color={theme.colors.text} />
-          <Text style={[styles.statValue, { color: theme.colors.text, fontFamily: fonts.lato.regular }]}>{value}</Text>
-          <Text style={[styles.statTitle, { color: theme.colors.text, fontFamily: fonts.lato.bold }]}>{title}</Text>
+          <Text style={[styles.statValue, { color: theme.colors.text, fontFamily:"Poppins-Regular" }]}>{value}</Text>
+          <Text style={[styles.statTitle, { color: theme.colors.text, fontFamily: "Lato-Bold",fontSize:"15" }]}>{title}</Text>
         </LinearGradient>
       </View>
     </Surface>
@@ -38,11 +38,11 @@ const FinancialCard = ({ title, current, target, percentage, gradient }) => {
         style={styles.gradientBorder}
       />
       <Card.Content style={styles.financialContent}>
-        <Text variant="titleMedium" style={{ color: theme.colors.text, fontFamily: fonts.lato.bold }}>{title}</Text>
-        <Text variant="headlineMedium" style={[styles.financialAmount, { color: theme.colors.text, fontFamily: fonts.lato.regular }]}>
+        <Text variant="titleMedium" style={{ color: theme.colors.text, fontFamily: Fonts.lato.bold }}>{title}</Text>
+        <Text variant="headlineMedium" style={[styles.financialAmount, { color: theme.colors.text, fontFamily: Fonts.lato.regular }]}>
           {current.toLocaleString('tr-TR')} ₺
         </Text>
-        <Text variant="bodySmall" style={{ color: theme.colors.textSecondary, fontFamily: fonts.lato.italic }}>
+        <Text variant="bodySmall" style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.italic }}>
           Hedef: {target.toLocaleString('tr-TR')} ₺
         </Text>
         <ProgressBar 
@@ -50,6 +50,130 @@ const FinancialCard = ({ title, current, target, percentage, gradient }) => {
           color={gradient[0]}
           style={styles.progressBar}
         />
+      </Card.Content>
+    </Card>
+  );
+};
+
+// Custom animated progress bar component
+const AnimatedProgressBar = ({ progress, color, style, duration = 1500 }) => {
+  const animatedWidth = useRef(new Animated.Value(0)).current;
+  
+  useEffect(() => {
+    Animated.timing(animatedWidth, {
+      toValue: progress,
+      duration: duration,
+      useNativeDriver: false,
+    }).start();
+  }, []);
+  
+  return (
+    <View style={[styles.progressBarContainer, style]}>
+      <Animated.View 
+        style={[
+          styles.progressBarFill, 
+          { 
+            width: animatedWidth.interpolate({
+              inputRange: [0, 1],
+              outputRange: ['0%', '100%'],
+            }),
+            backgroundColor: color,
+          }
+        ]}
+      >
+        <View style={styles.progressBarGlow} />
+      </Animated.View>
+    </View>
+  );
+};
+
+const FinancialOverviewCard = ({ data }) => {
+  const theme = useTheme();
+  
+  // Format currency
+  const formatCurrency = (value) => {
+    return value.toLocaleString('tr-TR') + ' ₺';
+  };
+  
+  // Calculate percentage difference
+  const calculateDifference = () => {
+    const difference = data.monthlyCollectedAmount - data.monthlyExpectedIncome;
+    const percentDiff = (difference / data.monthlyExpectedIncome) * 100;
+    return {
+      value: Math.abs(difference),
+      percent: Math.abs(percentDiff).toFixed(1),
+      isPositive: difference >= 0
+    };
+  };
+  
+  const difference = calculateDifference();
+  
+  return (
+    <Card style={[styles.financialOverviewCard, { backgroundColor: "transparent"}]}>
+      <Card.Content>
+        <View style={styles.financialOverviewContent}>
+          {/* Monthly Income Card */}
+          <View style={styles.monthlyIncomeContainer}>
+            <LinearGradient
+              colors={theme.gradients.success}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.monthlyIncomeGradient}
+            >
+              <View style={styles.monthlyIncomeContent}>
+                <View style={styles.monthlyIncomeRow}>
+                  <View style={styles.monthlyIncomeLeft}>
+                    <View style={styles.monthlyIncomeHeader}>
+                      <Icon name="chart-line" size={24} color="#fff" />
+                      <Text style={styles.monthlyIncomeTitle}>Aylık Gelir</Text>
+                    </View>
+                    
+                    <Text style={styles.monthlyIncomeValue}>
+                      {formatCurrency(data.monthlyCollectedAmount)}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.monthlyIncomeRight}>
+                    <View style={styles.monthlyIncomeHeader}>
+                      <Icon name="cash-multiple" size={24} color="#fff" />
+                      <Text style={styles.monthlyIncomeTitle}>Toplam Gelir</Text>
+                    </View>
+                    
+                    <Text style={styles.monthlyIncomeValue}>
+                      {formatCurrency(data.monthlyTotalIncome)}
+                    </Text>
+                  </View>
+                </View>
+                
+                {/* Difference */}
+                <View style={styles.monthlyIncomeDifference}>
+                  <Text style={styles.monthlyIncomeDifferenceLabel}>
+                    {difference.isPositive ? 'Fazla:' : 'Eksik:'}
+                  </Text>
+                  <Text style={styles.monthlyIncomeDifferenceValue}>
+                    {formatCurrency(difference.value)} ({difference.percent}%)
+                  </Text>
+                </View>
+                
+                {/* Collection Rate */}
+                <View style={styles.monthlyIncomeRateContainer}>
+                  <View style={styles.monthlyIncomeRateHeader}>
+                    <Text style={styles.monthlyIncomeRateLabel}>Tahsilat Oranı</Text>
+                    <Text style={styles.monthlyIncomeRateValue}>
+                      {data.collectionRate.toFixed(1)}%
+                    </Text>
+                  </View>
+                  <AnimatedProgressBar 
+                    progress={data.collectionRate / 100} 
+                    color="#fff"
+                    style={styles.monthlyIncomeProgress}
+                    duration={2000}
+                  />
+                </View>
+              </View>
+            </LinearGradient>
+          </View>
+        </View>
       </Card.Content>
     </Card>
   );
@@ -85,16 +209,16 @@ const ActivityItem = ({ activity }) => {
     <List.Item
       style={styles.activityItem}
       title={props => (
-        <Text style={{ color: theme.colors.text, fontFamily: fonts.lato.bold }}>
+        <Text style={{ color: theme.colors.text, fontFamily: Fonts.lato.bold }}>
           {activity.title}
         </Text>
       )}
       description={props => (
         <View>
-          <Text style={{ color: theme.colors.textSecondary, fontFamily: fonts.lato.regular }}>
+          <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
             {activity.description}
           </Text>
-          <Text style={{ color: theme.colors.textSecondary, fontFamily: fonts.lato.italic }}>
+          <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.italic }}>
             {activity.userFullName}
           </Text>
         </View>
@@ -131,11 +255,11 @@ const ActivityItem = ({ activity }) => {
       )}
       right={props => (
         <View style={styles.activityRight}>
-          <Text style={{ color: theme.colors.textSecondary, fontFamily: fonts.lato.regular }}>
+          <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
             {new Date(activity.activityDate).toLocaleDateString('tr-TR')}
           </Text>
           {activity.amount && (
-            <Text style={{ color: theme.colors.text, fontFamily: fonts.lato.bold }}>
+            <Text style={{ color: theme.colors.text, fontFamily: Fonts.lato.bold }}>
               {activity.amount.toLocaleString('tr-TR')} ₺
             </Text>
           )}
@@ -143,7 +267,7 @@ const ActivityItem = ({ activity }) => {
             <Badge 
               style={{ 
                 fontSize: 12,
-                fontFamily: fonts.lato.bold,
+                fontFamily: Fonts.lato.bold,
                 paddingHorizontal: 8,
                 
                 marginBottom: 4,
@@ -168,16 +292,16 @@ const PaymentItem = ({ payment }) => {
     <List.Item
       style={styles.activityItem}
       title={props => (
-        <Text style={{ color: theme.colors.text, fontFamily: fonts.lato.bold }}>
+        <Text style={{ color: theme.colors.text, fontFamily: Fonts.lato.bold }}>
           {payment.paymentType}
         </Text>
       )}
       description={props => (
         <View>
-          <Text style={{ color: theme.colors.textSecondary, fontFamily: fonts.lato.regular }}>
+          <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
             {payment.amount.toLocaleString('tr-TR')} ₺
           </Text>
-          <Text style={{ color: theme.colors.textSecondary, fontFamily: fonts.lato.italic }}>
+          <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.italic }}>
             {payment.payerName}
           </Text>
         </View>
@@ -205,13 +329,13 @@ const PaymentItem = ({ payment }) => {
       )}
       right={props => (
         <View style={styles.activityRight}>
-          <Text style={{ color: theme.colors.textSecondary, fontFamily: fonts.lato.regular }}>
+          <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
             {new Date(payment.paymentDate).toLocaleDateString('tr-TR')}
           </Text>
           <Badge 
             style={{ 
               fontSize: 12,
-              fontFamily: fonts.lato.bold,
+              fontFamily: Fonts.lato.bold,
               paddingHorizontal: 8,
               marginBottom: 4,
               backgroundColor: payment.isPaid ? theme.colors.success : theme.colors.warning 
@@ -244,16 +368,16 @@ const ComplaintItem = ({ complaint, onPress }) => {
       <List.Item
         style={styles.activityItem}
         title={props => (
-          <Text style={{ color: theme.colors.text, fontFamily: fonts.lato.bold }}>
+          <Text style={{ color: theme.colors.text, fontFamily: Fonts.lato.bold }}>
             {complaint.subject}
           </Text>
         )}
         description={props => (
           <View>
-            <Text style={{ color: theme.colors.textSecondary, fontFamily: fonts.lato.regular }}>
+            <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
               {complaint.description}
             </Text>
-            <Text style={{ color: theme.colors.textSecondary, fontFamily: fonts.lato.italic }}>
+            <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.italic }}>
               {complaint.complainerName}
             </Text>
           </View>
@@ -281,13 +405,13 @@ const ComplaintItem = ({ complaint, onPress }) => {
         )}
         right={props => (
           <View style={styles.activityRight}>
-            <Text style={{ color: theme.colors.textSecondary, fontFamily: fonts.lato.regular }}>
+            <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
               {new Date(complaint.createdAt).toLocaleDateString('tr-TR')}
             </Text>
             <Badge 
               style={{ 
                 fontSize: 12,
-                fontFamily: fonts.lato.bold,
+                fontFamily: Fonts.lato.bold,
                 paddingHorizontal: 8,
                 marginBottom: 4,
                 backgroundColor: complaint.status === 'Çözüldü' ? theme.colors.success : theme.colors.warning 
@@ -339,7 +463,7 @@ const ComplaintModal = ({ visible, complaint, onClose, onResolve, isResolving })
           ]}
         >
           <View style={styles.modalHeader}>
-            <Text style={[styles.modalTitle, { color: theme.colors.text, fontFamily: fonts.lato.bold }]}>
+            <Text style={[styles.modalTitle, { color: theme.colors.text, fontFamily: Fonts.lato.bold }]}>
               Şikayet Detayı
             </Text>
             <TouchableOpacity onPress={onClose}>
@@ -363,16 +487,16 @@ const ComplaintModal = ({ visible, complaint, onClose, onResolve, isResolving })
                 />
               )}
               <View style={styles.complaintHeaderText}>
-                <Text style={{ fontSize: 18, fontFamily: fonts.lato.bold, color: theme.colors.text }}>
+                <Text style={{ fontSize: 18, fontFamily: Fonts.lato.bold, color: theme.colors.text }}>
                   {complaint.complainerName}
                 </Text>
-                <Text style={{ fontFamily: fonts.lato.regular, color: theme.colors.textSecondary }}>
+                <Text style={{ fontFamily: Fonts.lato.regular, color: theme.colors.textSecondary }}>
                   {complaint.apartmentNumber}, {complaint.buildingName}
                 </Text>
                 <View style={styles.statusChip}>
                   <Text style={{ 
                     color: complaint.status === 'Çözüldü' ? theme.colors.success : theme.colors.warning,
-                    fontFamily: fonts.lato.bold 
+                    fontFamily: Fonts.lato.bold 
                   }}>
                     {complaint.status}
                   </Text>
@@ -382,15 +506,15 @@ const ComplaintModal = ({ visible, complaint, onClose, onResolve, isResolving })
             
             <Divider style={{ marginVertical: 16 }} />
             
-            <Text style={{ fontSize: 18, fontFamily: fonts.lato.bold, color: theme.colors.text, marginBottom: 8 }}>
+            <Text style={{ fontSize: 18, fontFamily: Fonts.lato.bold, color: theme.colors.text, marginBottom: 8 }}>
               {complaint.subject}
             </Text>
             
-            <Text style={{ fontFamily: fonts.lato.regular, color: theme.colors.text, marginBottom: 16 }}>
+            <Text style={{ fontFamily: Fonts.lato.regular, color: theme.colors.text, marginBottom: 16 }}>
               {complaint.description}
             </Text>
             
-            <Text style={{ fontFamily: fonts.lato.italic, color: theme.colors.textSecondary, marginBottom: 24 }}>
+            <Text style={{ fontFamily: Fonts.lato.italic, color: theme.colors.textSecondary, marginBottom: 24 }}>
               Tarih: {new Date(complaint.createdAt).toLocaleString('tr-TR')}
             </Text>
             
@@ -412,14 +536,79 @@ const ComplaintModal = ({ visible, complaint, onClose, onResolve, isResolving })
   );
 };
 
+const MostComplainedBuildingCard = ({ data }) => {
+  const theme = useTheme();
+  
+  return (
+    <Card style={[styles.mostComplainedCard, { backgroundColor: theme.colors.surface }]}>
+      <LinearGradient
+        colors={Gradients.warning}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.gradientBorder}
+      />
+      <Card.Content style={styles.mostComplainedContent}>
+        <View style={styles.mostComplainedHeader}>
+          <View style={styles.mostComplainedTitleContainer}>
+            <Icon name="alert-circle" size={24} color={theme.colors.warning} />
+            <Text style={[styles.mostComplainedTitle, { color: theme.colors.text, fontFamily: Fonts.lato.bold }]}>
+              En Çok Şikayet Alan Bina
+            </Text>
+          </View>
+          <View style={[styles.complaintCountBadge, { backgroundColor: theme.colors.warning }]}>
+            <Text style={styles.complaintCountText}>{data.complaintCount}</Text>
+          </View>
+        </View>
+        
+        <View style={styles.buildingInfoContainer}>
+          <Icon name="office-building" size={40} color={theme.colors.warning} style={styles.buildingIcon} />
+          <View style={styles.buildingDetails}>
+            <Text style={[styles.buildingName, { color: theme.colors.text, fontFamily: Fonts.lato.bold }]}>
+              {data.buildingName}
+            </Text>
+            <Text style={[styles.lastComplaintDate, { color: theme.colors.textSecondary, fontFamily: Fonts.lato.italic }]}>
+              Son şikayet: {new Date(data.lastComplaintDate).toLocaleDateString('tr-TR')}
+            </Text>
+          </View>
+        </View>
+        
+        <View style={styles.complaintsContainer}>
+          <Text style={[styles.complaintsTitle, { color: theme.colors.textSecondary, fontFamily: Fonts.lato.bold }]}>
+            Yaygın Şikayetler:
+          </Text>
+          {data.commonComplaints.map((complaint, index) => (
+            <View key={index} style={styles.complaintItem}>
+              <View style={[styles.complaintBullet, { backgroundColor: theme.colors.warning }]} />
+              <Text style={[styles.complaintText, { color: theme.colors.text, fontFamily: Fonts.lato.regular }]}>
+                {complaint}
+              </Text>
+            </View>
+          ))}
+        </View>
+        
+        <TouchableOpacity style={[styles.viewDetailsButton, { borderColor: theme.colors.warning }]}>
+          <Text style={[styles.viewDetailsText, { color: theme.colors.warning, fontFamily: Fonts.lato.bold }]}>
+            Tüm Şikayetleri Görüntüle
+          </Text>
+          <Icon name="chevron-right" size={16} color={theme.colors.warning} />
+        </TouchableOpacity>
+      </Card.Content>
+    </Card>
+  );
+};
+
 const DashboardScreen = () => {
   const theme = useTheme();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('activities');
+  const [activeTab, setActiveTab] = useState(0); // 0: activities, 1: complaints, 2: payments
+  const [scrollPosition, setScrollPosition] = useState(0); // Track exact scroll position
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
+  const flatListRef = useRef(null);
+  const screenWidth = Dimensions.get('window').width;
+  const itemWidth = screenWidth - 32;
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -468,19 +657,41 @@ const DashboardScreen = () => {
     }
   };
 
+  const handleTabChange = (index) => {
+    setActiveTab(index);
+    flatListRef.current?.scrollToIndex({ index, animated: true });
+  };
+
+  const handleScroll = (event) => {
+    const contentOffsetX = event.nativeEvent.contentOffset.x;
+    const index = Math.floor(contentOffsetX / (screenWidth - 32) + 0.5);
+    if (activeTab !== index) {
+      setActiveTab(index);
+    }
+  };
+
+  // Sürekli kaydırma sırasında da tab'ı güncelle
+  const handleScrolling = (event) => {
+    const contentOffsetX = event.nativeEvent.contentOffset.x;
+    const index = Math.floor(contentOffsetX / (screenWidth - 32) + 0.5);
+    if (index >= 0 && index <= 2) {
+      setActiveTab(index);
+    }
+  };
+
   const TabHeader = () => (
     <View style={styles.tabHeader}>
       <TouchableOpacity 
         style={[
           styles.tabButton,
-          activeTab === 'activities' && styles.activeTabButton
+          activeTab === 0 && styles.activeTabButton
         ]}
-        onPress={() => setActiveTab('activities')}
+        onPress={() => handleTabChange(0)}
       >
         <Text style={[
           styles.tabText,
-          activeTab === 'activities' && styles.activeTabText,
-          { fontFamily: fonts.lato.bold }
+          activeTab === 0 && styles.activeTabText,
+          { fontFamily: Fonts.lato.bold }
         ]}>
           Son Aktiviteler
         </Text>
@@ -488,14 +699,14 @@ const DashboardScreen = () => {
       <TouchableOpacity 
         style={[
           styles.tabButton,
-          activeTab === 'complaints' && styles.activeTabButton
+          activeTab === 1 && styles.activeTabButton
         ]}
-        onPress={() => setActiveTab('complaints')}
+        onPress={() => handleTabChange(1)}
       >
         <Text style={[
           styles.tabText,
-          activeTab === 'complaints' && styles.activeTabText,
-          { fontFamily: fonts.lato.bold }
+          activeTab === 1 && styles.activeTabText,
+          { fontFamily: Fonts.lato.bold }
         ]}>
           Şikayetler
         </Text>
@@ -503,155 +714,168 @@ const DashboardScreen = () => {
       <TouchableOpacity 
         style={[
           styles.tabButton,
-          activeTab === 'payments' && styles.activeTabButton
+          activeTab === 2 && styles.activeTabButton
         ]}
-        onPress={() => setActiveTab('payments')}
+        onPress={() => handleTabChange(2)}
       >
         <Text style={[
           styles.tabText,
-          activeTab === 'payments' && styles.activeTabText,
-          { fontFamily: fonts.lato.bold }
+          activeTab === 2 && styles.activeTabText,
+          { fontFamily: Fonts.lato.bold }
         ]}>
           Ödemeler
         </Text>
       </TouchableOpacity>
     </View>
   );
-  
+
+  const ActivitiesTab = () => (
+    <View style={[styles.tabContent, { width: screenWidth - 32 }]}>
+      {dashboardData.recentActivities.length === 0 ? (
+        <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
+          Aktivite bulunamadı
+        </Text>
+      ) : (
+        <>
+          {dashboardData.recentActivities.slice(0, 5).map((activity, index) => (
+            <React.Fragment key={activity.id}>
+              <ActivityItem activity={activity} />
+              {index < 4 && (
+                <Divider style={[styles.itemDivider, { backgroundColor: theme.colors.textSecondary }]} />
+              )}
+            </React.Fragment>
+          ))}
+        </>
+      )}
+    </View>
+  );
+
+  const ComplaintsTab = () => (
+    <View style={[styles.tabContent, { width: screenWidth - 32 }]}>
+      {dashboardData.recentComplaints.length === 0 ? (
+        <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
+          Şikayet bulunamadı
+        </Text>
+      ) : (
+        <>
+          {dashboardData.recentComplaints.map((complaint, index) => (
+            <React.Fragment key={complaint.id}>
+              <ComplaintItem 
+                complaint={complaint} 
+                onPress={handleComplaintPress}
+              />
+              {index < dashboardData.recentComplaints.length - 1 && (
+                <Divider style={[styles.itemDivider, { backgroundColor: theme.colors.textSecondary }]} />
+              )}
+            </React.Fragment>
+          ))}
+        </>
+      )}
+    </View>
+  );
+
+  const PaymentsTab = () => (
+    <View style={[styles.tabContent, { width: screenWidth - 32 }]}>
+      {dashboardData.recentPayments.length === 0 ? (
+        <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
+          Ödeme bulunamadı
+        </Text>
+      ) : (
+        <>
+          {dashboardData.recentPayments.map((payment, index) => (
+            <React.Fragment key={payment.id}>
+              <PaymentItem payment={payment} />
+              {index < dashboardData.recentPayments.length - 1 && (
+                <Divider style={[styles.itemDivider, { backgroundColor: theme.colors.textSecondary }]} />
+              )}
+            </React.Fragment>
+          ))}
+        </>
+      )}
+    </View>
+  );
+
+  const renderTabContent = ({ item, index }) => {
+    switch (index) {
+      case 0:
+        return <ActivitiesTab />;
+      case 1:
+        return <ComplaintsTab />;
+      case 2:
+        return <PaymentsTab />;
+      default:
+        return null;
+    }
+  };
+   
   if (loading || !dashboardData) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ color: theme.colors.text, fontFamily: fonts.lato.regular }}>Yükleniyor...</Text>
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center'}]}>
+        <Text style={{ color: theme.colors.text, fontFamily: Fonts.lato.regular }}>Yükleniyor...</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Text variant="headlineMedium" style={[styles.header, { color: theme.colors.text, fontFamily: fonts.lato.regular }]}>
-        Site Yönetim Paneli
-      </Text>
-      
+    <ScrollView 
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      nestedScrollEnabled={true}
+    >
       <View style={styles.statsContainer}>
         <StatCard
           title="Toplam Bina"
           value={dashboardData.summary.totalBuildings}
           icon="office-building"
-          gradient={theme.gradients.primary}
+          gradient={Gradients.primary}
         />
         <StatCard
           title="Toplam Kiracı"
           value={dashboardData.summary.totalTenants}
           icon="account-group"
-          gradient={theme.gradients.success}
+          gradient={Gradients.greenBlue}
         />
         <StatCard
           title="Aktif Şikayet"
           value={dashboardData.summary.totalComplaints}
           icon="alert-circle"
-          gradient={theme.gradients.warning}
+          gradient={Gradients.warning}
         />
         <StatCard
+          
           title="Bekleyen Ödeme"
           value={dashboardData.summary.pendingPayments}
           icon="cash-multiple"
-          gradient={theme.gradients.danger}
+          gradient={Gradients.danger}
         />
       </View>
 
-      <View style={styles.financialContainer}>
-        <FinancialCard
-          title="Aylık Gelir"
-          current={dashboardData.financialOverview.monthlyCollectedAmount}
-          target={dashboardData.financialOverview.monthlyExpectedIncome}
-          percentage={dashboardData.financialOverview.collectionRate}
-          gradient={theme.gradients.success}
-        />
-      </View>
+      <FinancialOverviewCard data={dashboardData.financialOverview} />
 
       <Card style={[styles.activitiesCard, { backgroundColor: theme.colors.surface }]}>
         <TabHeader />
-        <Card.Content>
-          {activeTab === 'activities' ? (
-            dashboardData.recentActivities.length === 0 ? (
-              <Text style={{ color: theme.colors.textSecondary, fontFamily: fonts.lato.regular }}>
-                Aktivite bulunamadı
-              </Text>
-            ) : (
-              <>
-                {dashboardData.recentActivities.slice(0, 5).map((activity, index) => (
-                  <React.Fragment key={activity.id}>
-                    <ActivityItem activity={activity} />
-                    {index < 4 && (
-                      <Divider style={[styles.itemDivider, { backgroundColor: theme.colors.textSecondary }]} />
-                    )}
-                  </React.Fragment>
-                ))}
-              </>
-            )
-          ) : activeTab === 'complaints' ? (
-            dashboardData.recentComplaints.length === 0 ? (
-              <Text style={{ color: theme.colors.textSecondary, fontFamily: fonts.lato.regular }}>
-                Şikayet bulunamadı
-              </Text>
-            ) : (
-              <>
-                {dashboardData.recentComplaints.map((complaint, index) => (
-                  <React.Fragment key={complaint.id}>
-                    <ComplaintItem 
-                      complaint={complaint} 
-                      onPress={handleComplaintPress}
-                    />
-                    {index < dashboardData.recentComplaints.length - 1 && (
-                      <Divider style={[styles.itemDivider, { backgroundColor: theme.colors.textSecondary }]} />
-                    )}
-                  </React.Fragment>
-                ))}
-              </>
-            )
-          ) : (
-            dashboardData.recentPayments.length === 0 ? (
-              <Text style={{ color: theme.colors.textSecondary, fontFamily: fonts.lato.regular }}>
-                Ödeme bulunamadı
-              </Text>
-            ) : (
-              <>
-                {dashboardData.recentPayments.map((payment, index) => (
-                  <React.Fragment key={payment.id}>
-                    <PaymentItem payment={payment} />
-                    {index < dashboardData.recentPayments.length - 1 && (
-                      <Divider style={[styles.itemDivider, { backgroundColor: theme.colors.textSecondary }]} />
-                    )}
-                  </React.Fragment>
-                ))}
-              </>
-            )
-          )}
-        </Card.Content>
+        <FlatList
+          ref={flatListRef}
+          data={[0, 1, 2]} // Indexes for the three tabs
+          renderItem={renderTabContent}
+          keyExtractor={(item) => item.toString()}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onScroll={handleScrolling}
+          scrollEventThrottle={16}
+          initialScrollIndex={0}
+          getItemLayout={(data, index) => ({
+            length: itemWidth,
+            offset: itemWidth * index,
+            index,
+          })}
+          style={styles.flatList}
+          contentContainerStyle={styles.flatListContent}
+          decelerationRate="fast"
+        />
       </Card>
 
-      <Card style={[styles.activitiesCard, { backgroundColor: theme.colors.surface }]}>
-        <Card.Title 
-          title="En Çok Şikayet Alan Bina" 
-          titleStyle={{ color: theme.colors.text, fontFamily: fonts.lato.bold }}
-        />
-        <Card.Content>
-          <Text style={{ color: theme.colors.text, fontFamily: fonts.lato.bold, fontSize: 18 }}>
-            {dashboardData.mostComplainedBuilding.buildingName}
-          </Text>
-          <Text style={{ color: theme.colors.textSecondary, fontFamily: fonts.lato.regular, marginTop: 4 }}>
-            Şikayet Sayısı: {dashboardData.mostComplainedBuilding.complaintCount}
-          </Text>
-          <Text style={{ color: theme.colors.textSecondary, fontFamily: fonts.lato.italic, marginTop: 8 }}>
-            Yaygın Şikayetler:
-          </Text>
-          {dashboardData.mostComplainedBuilding.commonComplaints.map((complaint, index) => (
-            <Text key={index} style={{ color: theme.colors.text, fontFamily: fonts.lato.regular, marginLeft: 8, marginTop: 4 }}>
-              • {complaint}
-            </Text>
-          ))}
-        </Card.Content>
-      </Card>
+      <MostComplainedBuildingCard data={dashboardData.mostComplainedBuilding} />
 
       <ComplaintModal 
         visible={modalVisible}
@@ -669,24 +893,25 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  header: {
-    marginBottom: 24,
-    fontSize: 32,
-  },
   statsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginTop: 8, // Add a small top margin
+    fontFamily:"Poppins-Regular",
   },
   statCard: {
     width: '48%',
     marginBottom: 16,
+    boxShadow: '0px 5px 10px 0px rgba(255, 246, 246, 0.3)',
+    borderRadius: 16,
+  
   },
   gradientCard: {
     padding: 20,
     alignItems: 'center',
     borderRadius: 16,
+    
   },
   statValue: {
     fontSize: 28,
@@ -733,8 +958,6 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
- 
-    
   },
   activityIconGradient: {
     width: 48,
@@ -751,7 +974,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.1)',
-    marginBottom: 8,
+    marginBottom: 0, // Remove gap between tab header and content
   },
   tabButton: {
     flex: 1,
@@ -760,14 +983,14 @@ const styles = StyleSheet.create({
   },
   activeTabButton: {
     borderBottomWidth: 2,
-    borderBottomColor: theme.colors.text,
+    borderBottomColor: "white"
   },
   tabText: {
     fontSize: 16,
-    color: theme.colors.textSecondary,
+    color: "white",
   },
   activeTabText: {
-    color: theme.colors.text,
+    color: "white",
   },
   profileAvatar: {
     marginBottom: 4,
@@ -776,7 +999,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginTop: 2,
-    color: theme.colors.text,
+    color: "white",
   },
   modalOverlay: {
     flex: 1,
@@ -825,7 +1048,236 @@ const styles = StyleSheet.create({
   itemDivider: {
     height: 1,
     opacity: 0.2,
-
+  },
+  flatList: {
+    height: "550", // Increased height to show 5 items
+  },
+  flatListContent: {
+    flexGrow: 1,
+  },
+  tabContent: {
+    padding: 16,
+    paddingTop: 8, // Reduced top padding to minimize gap
+  },
+  financialOverviewCard: {
+  
+    borderRadius: 16,
+    overflow: 'hidden',
+    width: 425,
+    alignSelf: 'center',
+  },
+  financialOverviewContent: {
+    padding: 8,
+  },
+  monthlyIncomeContainer: {
+    marginTop: 8,
+    borderRadius: 16,
+    width: "100%",
+   
+  },
+  monthlyIncomeGradient: {
+    borderRadius: 16,
+    width: "100%",
+  },
+  monthlyIncomeContent: {
+    padding: 16,
+    width: "100%",
+    
+  },
+  monthlyIncomeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  monthlyIncomeLeft: {
+    flex: 1,
+    marginRight: 16,
+  },
+  monthlyIncomeRight: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  monthlyIncomeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  monthlyIncomeTitle: {
+    fontSize: 16,
+    fontFamily: Fonts.lato.bold,
+    color: '#fff',
+    marginLeft: 8,
+  },
+  monthlyIncomeValue: {
+    fontSize: 28,
+    fontFamily: Fonts.lato.bold,
+    color: '#fff',
+  },
+  monthlyIncomeTotalLabel: {
+    fontSize: 14,
+    fontFamily: Fonts.lato.regular,
+    color: '#fff',
+    opacity: 0.9,
+    marginBottom: 4,
+  },
+  monthlyIncomeTotalValue: {
+    fontSize: 24,
+    fontFamily: Fonts.lato.bold,
+    color: '#fff',
+  },
+  monthlyIncomeDifference: {
+    marginTop: 8,
+    marginBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.2)',
+    paddingTop: 12,
+  },
+  monthlyIncomeDifferenceLabel: {
+    fontSize: 14,
+    fontFamily: Fonts.lato.bold,
+    color: '#fff',
+    opacity: 0.9,
+    marginBottom: 4,
+  },
+  monthlyIncomeDifferenceValue: {
+    fontSize: 16,
+    fontFamily: Fonts.lato.bold,
+    color: '#fff',
+  },
+  monthlyIncomeRateContainer: {
+    marginTop: 8,
+  },
+  monthlyIncomeRateHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  monthlyIncomeRateLabel: {
+    fontSize: 14,
+    fontFamily: Fonts.lato.bold,
+    color: '#fff',
+  },
+  monthlyIncomeRateValue: {
+    fontSize: 16,
+    fontFamily: Fonts.lato.bold,
+    color: '#fff',
+  },
+  monthlyIncomeProgress: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  progressBarContainer: {
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 5,
+    position: 'relative',
+  },
+  progressBarGlow: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 15,
+    height: '100%',
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderRadius: 5,
+  },
+  mostComplainedCard: {
+    marginBottom: 104,
+    borderRadius: 16,
+    overflow: 'hidden',
+    
+  },
+  mostComplainedContent: {
+    padding: 16,
+  },
+  mostComplainedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  mostComplainedTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mostComplainedTitle: {
+    fontSize: 18,
+    marginLeft: 8,
+  },
+  complaintCountBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  complaintCountText: {
+    color: '#fff',
+    fontFamily: Fonts.lato.bold,
+    fontSize: 16,
+  },
+  buildingInfoContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    borderRadius: 12,
+  },
+  buildingIcon: {
+    marginRight: 12,
+  },
+  buildingDetails: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  buildingName: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  lastComplaintDate: {
+    fontSize: 12,
+  },
+  complaintsContainer: {
+    marginBottom: 16,
+  },
+  complaintsTitle: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  complaintItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  complaintBullet: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  complaintText: {
+    fontSize: 14,
+    flex: 1,
+  },
+  viewDetailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderRadius: 8,
+  },
+  viewDetailsText: {
+    fontSize: 14,
+    marginRight: 4,
   },
 });
 
