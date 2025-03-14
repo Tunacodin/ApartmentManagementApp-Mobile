@@ -19,6 +19,7 @@ import UsersScreen from '../screens/admin/Management/UsersScreen';
 import MeetingsScreen from '../screens/admin/Management/MeetingsScreen';
 import SurveysScreen from '../screens/admin/Management/SurveysScreen';
 import ComplaintsScreen from '../screens/admin/Management/ComplaintsScreen';
+import ApartmentDetailsScreen from '../screens/admin/Management/ApartmentDetailsScreen';
 
 // Finance Screens
 import FinanceScreen from '../screens/admin/Finance/FinanceScreen';
@@ -93,6 +94,14 @@ const ManagementStack = () => (
     <Stack.Screen name="Complaints" component={ComplaintsScreen} />
     <Stack.Screen name="CreateMeeting" component={CreateMeetingScreen} />
     <Stack.Screen name="CreateAnnouncement" component={CreateAnnouncementScreen} />
+    <Stack.Screen 
+      name="ApartmentDetails" 
+      component={ApartmentDetailsScreen}
+      options={{
+        title: 'Daire Detayları',
+        headerTitleStyle: styles.headerTitle,
+      }}
+    />
   </Stack.Navigator>
 );
 

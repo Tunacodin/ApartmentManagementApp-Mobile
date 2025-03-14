@@ -1,5 +1,5 @@
 // src/constants/Colors.js
-const Colors = {
+export const Colors = {
   primary: '#6C72CB',
   secondary: '#CB69C1',
   success: '#4FD1C5',
@@ -10,6 +10,8 @@ const Colors = {
   text: '#FFFFFF',
   textSecondary: '#A0AEC0',
 };
+
+
 
 export const Gradients = {
   primary: ['#6C72CB', '#CB69C1'],

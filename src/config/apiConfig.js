@@ -1,5 +1,5 @@
 // Base URL'i tanımla
-export const API_BASE_URL = "https://020d-78-187-59-29.ngrok-free.app/api";
+export const API_BASE_URL = "https://3add-78-187-59-29.ngrok-free.app/api";
 
 // Admin ID yönetimi için global değişken ve yönetim fonksiyonları
 let currentAdminId = 4;
@@ -69,6 +69,9 @@ export const API_ENDPOINTS = {
         },
         ENHANCED_DASHBOARD: (adminId) => `${API_BASE_URL}/Admin/enhanced-dashboard/${adminId}`,
         STATISTICS: (adminId) => `${API_BASE_URL}/Admin/${adminId}/statistics`,
+        MANAGEMENT: {
+            BY_BUILDING: (adminId, buildingId) => `${API_BASE_URL}/Admin/management/${adminId}?buildingId=${buildingId}`,
+        },
     },
 
     // Building endpoints
@@ -83,6 +86,7 @@ export const API_ENDPOINTS = {
         GET_ALL: `${API_BASE_URL}/Apartment`,
         CREATE: `${API_BASE_URL}/Apartment`,
         DETAIL: (id) => `${API_BASE_URL}/Apartment/${id}`,
+        GET_DETAILS: (id) => `${API_BASE_URL}/Apartment/${id}`,
         BY_BUILDING: (buildingId) => `${API_BASE_URL}/Apartment/building/${buildingId}`,
         UPDATE: (id) => `${API_BASE_URL}/Apartment/${id}`,
         DELETE: (id) => `${API_BASE_URL}/Apartment/${id}`,
@@ -141,6 +145,21 @@ export const API_ENDPOINTS = {
         GET_RESULTS: (id) => `${API_BASE_URL}/Survey/${id}/results`,
         SUBMIT_RESPONSE: (id) => `${API_BASE_URL}/Survey/${id}/respond`,
         CLOSE: (id) => `${API_BASE_URL}/Survey/${id}/close`
+    },
+
+    // Tenant endpoints
+    TENANT: {
+        GET_DETAILS: (id) => `${API_BASE_URL}/Tenant/${id}`,
+    },
+
+    // Owner endpoints
+    OWNER: {
+        GET_DETAILS: (id) => `${API_BASE_URL}/Owner/${id}`,
+    },
+
+    // User Profile endpoints
+    USER_PROFILE: {
+        GET_PROFILE_IMAGE: (id) => `${API_BASE_URL}/UserProfile/${id}`,
     }
 };
 
