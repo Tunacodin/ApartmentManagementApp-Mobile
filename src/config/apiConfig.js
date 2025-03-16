@@ -129,9 +129,14 @@ export const API_ENDPOINTS = {
         CREATE: `${API_BASE_URL}/Complaint`,
         DETAIL: (id) => `${API_BASE_URL}/Complaint/${id}`,
         BY_BUILDING: (buildingId) => `${API_BASE_URL}/Complaint/building/${buildingId}`,
+        BY_USER: (userId) => `${API_BASE_URL}/Complaint/user/${userId}`,
+        ACTIVE_COUNT: (buildingId) => `${API_BASE_URL}/Complaint/building/${buildingId}/active/count`,
         UPDATE: (id) => `${API_BASE_URL}/Complaint/${id}`,
         DELETE: (id) => `${API_BASE_URL}/Complaint/${id}`,
-        RESOLVE: (id) => `${API_BASE_URL}/Complaint/${id}/resolve`,
+        RESOLVE: (id, adminId) => `${API_BASE_URL}/Complaint/${id}/resolve/${adminId}`,
+        TAKE: (id, adminId) => `${API_BASE_URL}/Complaint/${id}/take?adminId=${adminId}`,
+        REJECT: (id, adminId) => `${API_BASE_URL}/Complaint/${id}/reject/${adminId}`,
+        CLOSE: (id, adminId) => `${API_BASE_URL}/Complaint/${id}/close/${adminId}`,
         ADD_COMMENT: (id) => `${API_BASE_URL}/Complaint/${id}/comment`
     },
 

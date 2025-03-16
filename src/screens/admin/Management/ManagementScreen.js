@@ -15,6 +15,7 @@ import { Colors, Gradients } from '../../../constants/Colors';
 import Fonts from '../../../constants/Fonts';
 import Theme from '../../../constants/Theme';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import axios from 'axios';
 import { API_ENDPOINTS, getCurrentAdminId } from '../../../config/apiConfig';
@@ -33,29 +34,46 @@ const BuildingSelector = ({ buildings = [], selectedBuilding, onSelectBuilding }
     if (!item) return null;
 
     const isSelected = selectedBuilding?.id === item.id;
-    const gradientColors = isSelected ? ['#2C3E50', '#3498DB'] : ['#A8FAFC', '#ABF5FB'];
-    const textColor = isSelected ? Colors.text : Colors.primary;
-    const iconColor = isSelected ? Colors.text : Colors.primary;
-    
 
     return (
       <TouchableOpacity
         onPress={() => onSelectBuilding(item)}
+        activeOpacity={0.8}
         style={[
           styles.buildingCard,
           isSelected && styles.selectedBuildingCard
         ]}
       >
+        {!isSelected && (
+          <BlurView
+            intensity={10}
+            tint="light"
+            style={[
+              StyleSheet.absoluteFill,
+              { 
+                borderRadius: 20,
+                borderWidth: 2,
+                borderColor: 'rgba(125, 211, 252, 0.5)'
+              }
+            ]}
+          />
+        )}
         <LinearGradient
-          colors={isSelected ? ['#2C3E50', '#3498DB'] : ['#B8CFAC', '#ABF5FB']}
+          colors={isSelected ? ['#2C3E50', '#3498DB'] : ['transparent', 'transparent']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.buildingCardGradient}
+          style={[
+            styles.buildingCardGradient,
+            !isSelected && {
+              backgroundColor: 'transparent',
+              position: 'relative',
+            }
+          ]}
         >
           <View style={styles.buildingCardHeader}>
             <View style={[
               styles.buildingIconContainer,
-              { backgroundColor: isSelected ? 'rgba(255,255,255,0.1)' : Colors.primaryLight }
+              { backgroundColor: isSelected ? 'rgba(255,255,255,0.1)' : 'transparent' }
             ]}>
               <Icon 
                 name="office-building" 
@@ -66,7 +84,7 @@ const BuildingSelector = ({ buildings = [], selectedBuilding, onSelectBuilding }
             <CustomBadge
               style={[
                 styles.occupancyBadge,
-                { backgroundColor: isSelected ? 'rgba(255,255,255,0.1)' : Colors.successLight }
+                { backgroundColor: isSelected ? 'rgba(255,255,255,0.1)' : 'transparent' }
               ]}
               textStyle={{ color: isSelected ? '#FFFFFF' : Colors.success }}
             >
@@ -97,7 +115,7 @@ const BuildingSelector = ({ buildings = [], selectedBuilding, onSelectBuilding }
             </View>
             <View style={styles.buildingStatItem}>
               <Icon 
-                name="account-group" 
+                name="office-building-outline" 
                 size={16} 
                 color={isSelected ? 'rgba(255,255,255,0.8)' : Colors.textSecondary}
               />
@@ -105,7 +123,7 @@ const BuildingSelector = ({ buildings = [], selectedBuilding, onSelectBuilding }
                 styles.buildingStatText,
                 { color: isSelected ? 'rgba(255,255,255,0.8)' : Colors.textSecondary }
               ]}>
-                {item?.totalResidentsCount || 0} Sakin
+                {item?.floorCount || 0} Kat
               </Text>
             </View>
           </View>
@@ -150,22 +168,29 @@ const BuildingSelector = ({ buildings = [], selectedBuilding, onSelectBuilding }
 };
 
 // QuickStatCard Component (Updated)
-const QuickStatCard = ({ title, value, icon, gradient = Gradients.primary }) => {
+const QuickStatCard = ({ title, value, icon, gradient = Gradients.primary, onPress }) => {
   return (
-    <Surface style={styles.quickStatCard} elevation={2}>
-      <LinearGradient
-        colors={gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.quickStatGradient}
-      >
-        <View style={styles.quickStatIconContainer}>
-          <Icon name={icon} size={24} color={Colors.surface} />
-        </View>
-        <Text style={styles.quickStatValue}>{value}</Text>
-        <Text style={styles.quickStatTitle}>{title}</Text>
-      </LinearGradient>
-    </Surface>
+    <TouchableOpacity 
+      style={styles.quickStatCard} 
+      onPress={onPress}
+      disabled={!onPress}
+      activeOpacity={onPress ? 0.7 : 1}
+    >
+      <Surface style={{ borderRadius: 12, overflow: 'hidden' }} elevation={2}>
+        <LinearGradient
+          colors={gradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.quickStatGradient}
+        >
+          <View style={styles.quickStatIconContainer}>
+            <Icon name={icon} size={24} color={Colors.surface} />
+          </View>
+          <Text style={styles.quickStatValue}>{value}</Text>
+          <Text style={styles.quickStatTitle}>{title}</Text>
+        </LinearGradient>
+      </Surface>
+    </TouchableOpacity>
   );
 };
 
@@ -458,7 +483,7 @@ const ApartmentsList = ({ apartments, navigation, buildingId }) => {
           }]}>
             <Icon name="magnify" size={20} color="#3498DB" style={styles.searchIconNew} />
             <TextInput
-              placeholder="Daire no veya kiracı ara..."
+              placeholder="Daire no ara..."
               placeholderTextColor="#94A3B8"
               style={[styles.searchInputNew, { color: '#2C3E50' }]}
               onChangeText={text => {
@@ -768,6 +793,356 @@ const ContractModal = ({ visible, onClose, contractFile }) => {
   );
 };
 
+// ComplaintsModal Component
+const ComplaintsModal = ({ visible, onClose, buildingId }) => {
+  const [complaints, setComplaints] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [processingComplaint, setProcessingComplaint] = useState(null);
+
+  useEffect(() => {
+    const fetchComplaints = async () => {
+      if (!buildingId) return;
+      
+      try {
+        setLoading(true);
+        const response = await axios.get(API_ENDPOINTS.COMPLAINT.BY_BUILDING(buildingId));
+        
+        if (response.data && response.data.success) {
+          setComplaints(response.data.data);
+          setError(null);
+        } else {
+          throw new Error('Şikayet verileri alınamadı');
+        }
+      } catch (err) {
+        console.error('Error fetching complaints:', err);
+        setError('Şikayet verileri yüklenirken bir hata oluştu.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (visible) {
+      fetchComplaints();
+    }
+  }, [buildingId, visible]);
+
+  const handleTakeComplaint = async (complaintId) => {
+    try {
+      setProcessingComplaint(complaintId);
+      const adminId = getCurrentAdminId();
+      const url = API_ENDPOINTS.COMPLAINT.TAKE(complaintId, adminId);
+      
+      console.log('Taking complaint with URL:', url);
+      
+      const response = await axios.put(url, {}, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.data && response.data.success) {
+        // Refresh complaints list
+        const complaintsResponse = await axios.get(API_ENDPOINTS.COMPLAINT.BY_BUILDING(buildingId));
+        if (complaintsResponse.data && complaintsResponse.data.success) {
+          setComplaints(complaintsResponse.data.data);
+        }
+      } else {
+        throw new Error('İşlem başarısız oldu');
+      }
+    } catch (error) {
+      console.error('Error taking complaint:', error);
+      if (error.response) {
+        console.error('Error Response:', error.response.data);
+        alert(`Şikayet işleme alınamadı: ${error.response.data.message || 'Bir hata oluştu'}`);
+      } else {
+        alert('Şikayet işleme alınırken bir hata oluştu');
+      }
+    } finally {
+      setProcessingComplaint(null);
+    }
+  };
+
+  const handleResolveComplaint = async (complaintId) => {
+    try {
+      setProcessingComplaint(complaintId);
+      const adminId = getCurrentAdminId();
+      const url = API_ENDPOINTS.COMPLAINT.RESOLVE(complaintId, adminId);
+      
+      await axios.post(url, {}, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      // Refresh complaints list
+      const response = await axios.get(API_ENDPOINTS.COMPLAINT.BY_BUILDING(buildingId));
+      if (response.data && response.data.success) {
+        setComplaints(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error resolving complaint:', error);
+      if (error.response) {
+        console.error('Error Response:', error.response.data);
+      }
+    } finally {
+      setProcessingComplaint(null);
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 0: // Open
+        return (
+          <View style={[styles.statusBadge, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}>
+            <Text style={[styles.statusText, { color: '#B45309' }]}>Yeni</Text>
+          </View>
+        );
+      case 1: // InProgress
+        return (
+          <View style={[styles.statusBadge, { backgroundColor: '#DBEAFE', borderColor: '#3B82F6' }]}>
+            <Text style={[styles.statusText, { color: '#1D4ED8' }]}>İşleme Alındı</Text>
+          </View>
+        );
+      case 2: // Resolved
+        return (
+          <View style={[styles.statusBadge, { backgroundColor: '#D1FAE5', borderColor: '#10B981' }]}>
+            <Text style={[styles.statusText, { color: '#047857' }]}>Çözüldü</Text>
+          </View>
+        );
+      case 3: // Closed
+        return (
+          <View style={[styles.statusBadge, { backgroundColor: '#E5E7EB', borderColor: '#6B7280' }]}>
+            <Text style={[styles.statusText, { color: '#374151' }]}>Kapatıldı</Text>
+          </View>
+        );
+      case 4: // Rejected
+        return (
+          <View style={[styles.statusBadge, { backgroundColor: '#FEE2E2', borderColor: '#EF4444' }]}>
+            <Text style={[styles.statusText, { color: '#B91C1C' }]}>Reddedildi</Text>
+          </View>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const getTimeAgo = (date) => {
+    const now = new Date();
+    const complaintDate = new Date(date);
+    const diffInSeconds = Math.floor((now - complaintDate) / 1000);
+    
+    if (diffInSeconds < 60) return 'Az önce';
+    
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) return `${diffInMinutes} dakika önce`;
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours} saat önce`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 30) return `${diffInDays} gün önce`;
+    
+    const diffInMonths = Math.floor(diffInDays / 30);
+    return `${diffInMonths} ay önce`;
+  };
+
+  const getPriorityBadge = (priority) => {
+    switch (priority) {
+      case 0: // Low
+        return (
+          <View style={[styles.priorityBadge, { backgroundColor: '#E0F2FE', borderColor: '#7DD3FC' }]}>
+            <Icon name="alert-circle-outline" size={14} color="#0369A1" />
+            <Text style={[styles.priorityText, { color: '#0369A1' }]}>Düşük</Text>
+          </View>
+        );
+      case 1: // Medium
+        return (
+          <View style={[styles.priorityBadge, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}>
+            <Icon name="alert-circle" size={14} color="#B45309" />
+            <Text style={[styles.priorityText, { color: '#B45309' }]}>Orta</Text>
+          </View>
+        );
+      case 2: // High
+        return (
+          <View style={[styles.priorityBadge, { backgroundColor: '#FEE2E2', borderColor: '#EF4444' }]}>
+            <Icon name="alert-circle" size={14} color="#B91C1C" />
+            <Text style={[styles.priorityText, { color: '#B91C1C' }]}>Yüksek</Text>
+          </View>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const renderComplaintItem = ({ item }) => (
+    <Surface style={[styles.complaintItem, { elevation: 2 }]}>
+      <View style={styles.complaintHeader}>
+        <View style={styles.complaintTitleContainer}>
+          <Icon name="alert-circle" size={20} color="#EF4444" />
+          <Text style={styles.complaintSubject}>{item.subject}</Text>
+        </View>
+        {getStatusBadge(item.status)}
+      </View>
+      
+      <View style={styles.complaintMetaInfo}>
+        <View style={styles.metaItem}>
+          <Icon name="home" size={16} color="#64748B" />
+          <Text style={styles.metaText}>Daire {item.apartmentNumber || 'Belirtilmemiş'}</Text>
+        </View>
+        <View style={styles.metaItem}>
+          <Icon name="clock-outline" size={16} color="#64748B" />
+          <Text style={styles.metaText}>{getTimeAgo(item.createdAt)}</Text>
+        </View>
+        {getPriorityBadge(item.priority)}
+      </View>
+      
+      <Text style={styles.complaintDescription}>{item.description}</Text>
+      
+      <View style={styles.complaintFooter}>
+        <View style={styles.complaintUserInfo}>
+          {item.createdByProfileImage ? (
+            <Avatar.Image 
+              size={24} 
+              source={{ uri: item.createdByProfileImage }}
+              style={{ backgroundColor: 'transparent', marginRight: 8 }}
+            />
+          ) : (
+            <Avatar.Text 
+              size={24} 
+              label={item.createdByName?.split(' ').map(n => n[0]).join('')}
+              style={{ backgroundColor: '#E0F2FE', marginRight: 8 }}
+              labelStyle={{ color: '#0369A1', fontSize: 12 }}
+            />
+          )}
+          <Text style={styles.complaintUserName}>{item.createdByName}</Text>
+          <Text style={styles.complaintDate}>
+            {new Date(item.createdAt).toLocaleDateString('tr-TR', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
+          </Text>
+        </View>
+
+        {/* Action Buttons */}
+        {(item.status === 0 || item.status === 1) && (
+          <View style={styles.complaintActions}>
+            {item.status === 0 && (
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: '#DBEAFE', marginRight: 8 }]}
+                onPress={() => handleTakeComplaint(item.id)}
+                disabled={processingComplaint === item.id}
+              >
+                {processingComplaint === item.id ? (
+                  <ActivityIndicator size="small" color="#3B82F6" />
+                ) : (
+                  <>
+                    <Icon name="play-circle" size={16} color="#3B82F6" />
+                    <Text style={[styles.actionButtonText, { color: '#3B82F6' }]}>İşleme Al</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+            {item.status === 1 && (
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: '#D1FAE5' }]}
+                onPress={() => handleResolveComplaint(item.id)}
+                disabled={processingComplaint === item.id}
+              >
+                {processingComplaint === item.id ? (
+                  <ActivityIndicator size="small" color="#10B981" />
+                ) : (
+                  <>
+                    <Icon name="check-circle" size={16} color="#10B981" />
+                    <Text style={[styles.actionButtonText, { color: '#10B981' }]}>Çözüldü</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
+    </Surface>
+  );
+
+  return (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={visible}
+      onRequestClose={onClose}
+    >
+      <TouchableOpacity 
+        activeOpacity={1} 
+        onPress={onClose} 
+        style={StyleSheet.absoluteFill}
+      >
+        <BlurView
+          intensity={20}
+          tint="dark"
+          style={[
+            StyleSheet.absoluteFill,
+            styles.modalOverlay,
+          ]}
+        >
+          <TouchableOpacity 
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            style={[styles.modalContent, { 
+              width: '95%', 
+              maxHeight: '80%',
+              backgroundColor: 'rgba(255, 255, 255, 0.8)',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.2)',
+            }]}
+          >
+            <View style={[styles.modalHeader, { 
+              borderBottomColor: 'rgba(226, 232, 240, 0.6)',
+              backgroundColor: 'rgba(255, 255, 255, 0.9)'
+            }]}>
+              <Text style={styles.modalTitle}>Aktif Şikayetler</Text>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Icon name="close" size={24} color="#475569" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={[styles.modalBody, { padding: 12 }]}>
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color={Colors.primary} />
+                </View>
+              ) : error ? (
+                <View style={styles.errorContainer}>
+                  <Icon name="alert-circle-outline" size={48} color={Colors.error} />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : complaints.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <Icon name="check-circle" size={48} color={Colors.success} />
+                  <Text style={styles.emptyText}>Aktif şikayet bulunmuyor</Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={complaints}
+                  renderItem={renderComplaintItem}
+                  keyExtractor={(item) => item.id.toString()}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ padding: 4 }}
+                  ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+                  style={{ maxHeight: 460 }}
+                />
+              )}
+            </View>
+          </TouchableOpacity>
+        </BlurView>
+      </TouchableOpacity>
+    </Modal>
+  );
+};
+
 // TenantsList Component
 const TenantsList = ({ navigation, buildingId }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -830,7 +1205,15 @@ const TenantsList = ({ navigation, buildingId }) => {
 
   const handleEmail = async (email) => {
     try {
-      await Linking.openURL(`mailto:${email}`);
+      const gmailUrl = `gmail://co?to=${email}`;
+      const canOpenGmail = await Linking.canOpenURL(gmailUrl);
+      
+      if (canOpenGmail) {
+        await Linking.openURL(gmailUrl);
+      } else {
+        // Eğer Gmail uygulaması yoksa varsayılan mail uygulamasını aç
+        await Linking.openURL(`mailto:${email}`);
+      }
     } catch (error) {
       console.error('Error opening email:', error);
     }
@@ -841,10 +1224,13 @@ const TenantsList = ({ navigation, buildingId }) => {
     setModalVisible(true);
   };
 
-  const filteredTenants = tenants?.filter(tenant =>
-    tenant.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    tenant.apartmentNumber.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredTenants = tenants?.filter(tenant => {
+    const matchesSearch = searchQuery === '' ||
+      tenant.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tenant.apartmentNumber.toLowerCase().includes(searchQuery.toLowerCase());
+
+    return matchesSearch;
+  });
 
   const paginatedTenants = filteredTenants?.slice(
     (page - 1) * itemsPerPage,
@@ -865,6 +1251,7 @@ const TenantsList = ({ navigation, buildingId }) => {
         borderWidth: 1,
         borderColor: '#E2E8F0',
         height: 170
+        
       }]} 
     >
       <View style={[styles.tenantItemContentNew, { padding: 12, height: '100%', flexDirection: 'column', justifyContent: 'space-between' }]}>
@@ -1043,27 +1430,6 @@ const TenantsList = ({ navigation, buildingId }) => {
     </Surface>
   );
 
-  if (loading) {
-    return (
-      <Card style={[styles.sectionCardNew]} elevation={2}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-        </View>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card style={[styles.sectionCardNew]} elevation={2}>
-        <View style={styles.errorContainer}>
-          <Icon name="alert-circle-outline" size={48} color={Colors.error} />
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      </Card>
-    );
-  }
-
   return (
     <Card style={[styles.sectionCardNew]} elevation={2}>
       <ContractModal 
@@ -1081,7 +1447,7 @@ const TenantsList = ({ navigation, buildingId }) => {
         }}
       >
         <Card.Title 
-          title="Kiracılar" 
+          title="Apartman Sakinleri" 
           titleStyle={[styles.sectionTitleNew, { color: '#FFFFFF' }]}
           subtitle={`Toplam: ${filteredTenants?.length || 0}`}
           subtitleStyle={[styles.sectionSubtitleNew, { color: 'rgba(255,255,255,0.8)' }]}
@@ -1098,7 +1464,7 @@ const TenantsList = ({ navigation, buildingId }) => {
           }]}>
             <Icon name="magnify" size={20} color="#3498DB" style={styles.searchIconNew} />
             <TextInput
-              placeholder="Kiracı veya daire ara..."
+              placeholder="Apartman sakini ara..."
               onChangeText={setSearchQuery}
               value={searchQuery}
               style={styles.searchInputNew}
@@ -1111,21 +1477,25 @@ const TenantsList = ({ navigation, buildingId }) => {
             )}
           </View>
 
+          {/* Liste */}
           <FlatList
             data={paginatedTenants}
             renderItem={renderTenantItem}
             keyExtractor={(item) => item.id.toString()}
             scrollEnabled={false}
-            ItemSeparatorComponent={() => <View style={[styles.separatorNew, { backgroundColor: '#F1F5F9' }]} />}
+            ItemSeparatorComponent={() => (
+              <View style={[styles.separatorNew, { backgroundColor: '#F1F5F9' }]} />
+            )}
             contentContainerStyle={styles.listContainerNew}
             ListEmptyComponent={() => (
               <View style={styles.emptyListContainer}>
                 <Icon name="account-search" size={48} color={Colors.textSecondary} />
-                <Text style={styles.emptyListText}>Kiracı bulunamadı</Text>
+                <Text style={styles.emptyListText}>Apartman sakini bulunamadı</Text>
               </View>
             )}
           />
 
+          {/* Sayfalama */}
           {totalPages > 1 && (
             <View style={styles.paginationContainerNew}>
               <TouchableOpacity 
@@ -1209,6 +1579,8 @@ const ManagementScreen = ({ navigation }) => {
   const [selectedBuilding, setSelectedBuilding] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [hasAnimationPlayed, setHasAnimationPlayed] = useState(false);
+  const [showComplaints, setShowComplaints] = useState(false);
   const scrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
 
@@ -1237,21 +1609,25 @@ const ManagementScreen = ({ navigation }) => {
         }
         setError(null);
 
-        // Veri yüklendikten sonra animasyonu başlat
-        setTimeout(() => {
-          Animated.sequence([
-            Animated.timing(scrollX, {
-              toValue: -50,
-              duration: 500,
-              useNativeDriver: true,
-            }),
-            Animated.timing(scrollX, {
-              toValue: 0,
-              duration: 500,
-              useNativeDriver: true,
-            })
-          ]).start();
-        }, 500);
+        // Veri yüklendikten sonra animasyonu başlat (sadece bir kez)
+        if (!hasAnimationPlayed) {
+          setTimeout(() => {
+            Animated.sequence([
+              Animated.timing(scrollX, {
+                toValue: -50,
+                duration: 500,
+                useNativeDriver: true,
+              }),
+              Animated.timing(scrollX, {
+                toValue: 0,
+                duration: 500,
+                useNativeDriver: true,
+              })
+            ]).start(() => {
+              setHasAnimationPlayed(true);
+            });
+          }, 500);
+        }
       } else {
         throw new Error(response.data.message || 'Veri alınamadı');
       }
@@ -1330,6 +1706,7 @@ const ManagementScreen = ({ navigation }) => {
           value={selectedBuilding?.activeComplaintsCount || 0}
           icon="alert-circle"
           gradient={Gradients.warning}
+          onPress={() => setShowComplaints(true)}
         />
         <QuickStatCard
           title="Bekleyen Ödeme"
@@ -1338,6 +1715,12 @@ const ManagementScreen = ({ navigation }) => {
           gradient={Gradients.danger}
         />
       </View>
+
+      <ComplaintsModal
+        visible={showComplaints}
+        onClose={() => setShowComplaints(false)}
+        buildingId={selectedBuilding?.id}
+      />
 
       <Animated.FlatList
         ref={flatListRef}
@@ -1383,10 +1766,11 @@ const styles = StyleSheet.create({
   buildingSelectorContainer: {
     paddingHorizontal: 16,
     paddingVertical: 8,
+    marginRight: 16,
   },
   buildingCard: {
     width: width * 0.85,
-    marginHorizontal: 8,
+    marginHorizontal: 4,
     borderRadius: 20,
     overflow: 'hidden',
     elevation: 4,
@@ -1575,21 +1959,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   loadingContainer: {
-    flex: 1,
+    minHeight: 400,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 16
   },
   errorContainer: {
-    flex: 1,
+    minHeight: 400,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 16
   },
   errorText: {
+    marginTop: 12,
     fontSize: 16,
-    color: Colors.error,
-    textAlign: 'center',
     fontFamily: Fonts.urbanist.medium,
+    color: Colors.error,
+    textAlign: 'center'
   },
   sectionCardNew: {
     borderRadius: 16,
@@ -2049,20 +2439,18 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    width: '90%',
-    maxHeight: '80%',
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
+    backdropFilter: 'blur(10px)',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -2070,7 +2458,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   modalTitle: {
     fontSize: 18,
@@ -2102,6 +2491,155 @@ const styles = StyleSheet.create({
     backgroundColor: '#EBF5FB',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingListContainer: {
+    minHeight: 400,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16
+  },
+  errorListContainer: {
+    minHeight: 400,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 16
+  },
+  errorListText: {
+    marginTop: 12,
+    fontSize: 16,
+    fontFamily: Fonts.urbanist.medium,
+    color: Colors.error,
+    textAlign: 'center'
+  },
+  complaintItem: {
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  complaintHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  complaintTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  complaintSubject: {
+    fontSize: 16,
+    fontFamily: Fonts.urbanist.bold,
+    color: '#334155',
+  },
+  complaintDate: {
+    fontSize: 12,
+    fontFamily: Fonts.urbanist.medium,
+    color: '#64748B',
+  },
+  complaintDescription: {
+    fontSize: 14,
+    fontFamily: Fonts.urbanist.regular,
+    color: '#475569',
+    marginBottom: 12,
+  },
+  complaintFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  complaintUserInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  complaintUserName: {
+    fontSize: 13,
+    fontFamily: Fonts.urbanist.medium,
+    color: '#64748B',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontFamily: Fonts.urbanist.medium,
+    color: Colors.success,
+    marginTop: 12,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  statusText: {
+    fontSize: 12,
+    fontFamily: Fonts.urbanist.semiBold,
+  },
+  complaintActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 6,
+  },
+  actionButtonText: {
+    fontSize: 12,
+    fontFamily: Fonts.urbanist.semiBold,
+  },
+  complaintDate: {
+    fontSize: 12,
+    fontFamily: Fonts.urbanist.medium,
+    color: '#64748B',
+    marginLeft: 8,
+  },
+  complaintMetaInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  metaText: {
+    fontSize: 13,
+    fontFamily: Fonts.urbanist.medium,
+    color: '#64748B',
+  },
+  priorityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    gap: 4,
+  },
+  priorityText: {
+    fontSize: 12,
+    fontFamily: Fonts.urbanist.semiBold,
   },
 });
 
