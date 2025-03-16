@@ -785,28 +785,24 @@ const TenantsList = ({ navigation, buildingId }) => {
       
       try {
         setLoading(true);
-        const url = API_ENDPOINTS.BUILDING.APARTMENTS(buildingId);
+        const adminId = getCurrentAdminId();
+        const url = API_ENDPOINTS.ADMIN.MANAGEMENT.GET_BUILDING_DATA(adminId, buildingId);
         console.log('=== TenantsList: API Request ===');
-        console.log('API Endpoint Configuration:', {
-          endpoint: 'API_ENDPOINTS.BUILDING.APARTMENTS',
-          fullUrl: url,
-          buildingId: buildingId
-        });
+        console.log('API Endpoint:', url);
         
         const response = await axios.get(url);
         
-        if (response.data && response.data.data) {
-          // Sadece kiracısı olan daireleri filtrele
-          const tenantsData = response.data.data
-            .filter(apt => apt.tenantName)
-            .map(apt => ({
-              id: apt.id,
-              fullName: apt.tenantName,
-              apartmentNumber: apt.unitNumber.toString(),
-              phoneNumber: apt.tenantPhone || '',
-              email: apt.tenantEmail || '',
-              contractFile: apt.contractFile
-            }));
+        if (response.data && response.data.data && response.data.data.tenants) {
+          // API'den gelen kiracı verilerini işle
+          const tenantsData = response.data.data.tenants.map(tenant => ({
+            id: tenant.id,
+            fullName: tenant.fullName,
+            apartmentNumber: tenant.apartmentNumber,
+            phoneNumber: tenant.phoneNumber,
+            email: tenant.email,
+            contractFile: tenant.contractFile,
+            profileImage: tenant.profileImage
+          }));
           setTenants(tenantsData);
           setError(null);
         } else {
@@ -900,31 +896,32 @@ const TenantsList = ({ navigation, buildingId }) => {
             )}
           </View>
 
-        {/* Orta Kısım - Bilgiler */}
-        <View style={{ flex: 1, justifyContent: 'center' }}>
-          <Text style={[styles.tenantNameNew, { 
-            fontSize: 16, 
-            marginBottom: 4,
-            color: '#334155'
-          }]}>{item.fullName}</Text>
+          {/* Orta Kısım - Bilgiler */}
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <Text style={[styles.tenantNameNew, { 
+              fontSize: 16, 
+              marginBottom: 4,
+              color: '#334155',
+              fontFamily: Fonts.urbanist.bold
+            }]}>{item.fullName}</Text>
 
-            <View >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <View style={{
-                  backgroundColor: '#EBF5FB',
-                  padding: 6,
-                  borderRadius: 8
-                }}>
-                  <Icon name="home" size={16} color={Colors.primary} />
-                </View>
-                <Text style={{
-                  fontSize: 14,
-                  fontFamily: Fonts.urbanist.medium,
-                  color: '#475569'
-                }}>{item.apartmentNumber} </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <View style={{
+                backgroundColor: '#EBF5FB',
+                padding: 6,
+                borderRadius: 8
+              }}>
+                <Icon name="home" size={16} color={Colors.primary} />
               </View>
+              <Text style={{
+                fontSize: 14,
+                fontFamily: Fonts.urbanist.medium,
+                color: '#475569'
+              }}>Daire {item.apartmentNumber}</Text>
+            </View>
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {item.phoneNumber && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                 <View style={{
                   backgroundColor: '#EBF5FB',
                   padding: 6,
@@ -938,7 +935,9 @@ const TenantsList = ({ navigation, buildingId }) => {
                   color: '#475569'
                 }}>{item.phoneNumber}</Text>
               </View>
+            )}
 
+            {item.email && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <View style={{
                   backgroundColor: '#EBF5FB',
@@ -953,61 +952,65 @@ const TenantsList = ({ navigation, buildingId }) => {
                   color: '#475569'
                 }}>{item.email}</Text>
               </View>
-            </View>
+            )}
           </View>
         </View>
 
         {/* Alt Kısım - Aksiyon Butonları */}
         <View style={{ flexDirection: 'row', gap: 6 }}>
-          <TouchableOpacity 
-            style={[
-              styles.apartmentActionButtonNew,
-              {
-                backgroundColor: '#E0F2FE',
-                borderWidth: 1,
-                borderColor: '#7DD3FC',
-                padding: 8,
-                borderRadius: 8,
-                flex: 1,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6
-              }
-            ]}
-            onPress={() => handleCall(item.phoneNumber)}
-          >
-            <Icon name="phone" size={16} color="#0369A1" />
-            <Text style={[
-              styles.apartmentActionTextNew,
-              { color: '#0369A1', fontFamily: Fonts.urbanist.semiBold, fontSize: 12 }
-            ]}>Ara</Text>
-          </TouchableOpacity>
+          {item.phoneNumber && (
+            <TouchableOpacity 
+              style={[
+                styles.apartmentActionButtonNew,
+                {
+                  backgroundColor: '#E0F2FE',
+                  borderWidth: 1,
+                  borderColor: '#7DD3FC',
+                  padding: 8,
+                  borderRadius: 8,
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6
+                }
+              ]}
+              onPress={() => handleCall(item.phoneNumber)}
+            >
+              <Icon name="phone" size={16} color="#0369A1" />
+              <Text style={[
+                styles.apartmentActionTextNew,
+                { color: '#0369A1', fontFamily: Fonts.urbanist.semiBold, fontSize: 12 }
+              ]}>Ara</Text>
+            </TouchableOpacity>
+          )}
 
-          <TouchableOpacity 
-            style={[
-              styles.apartmentActionButtonNew,
-              {
-                backgroundColor: '#E0F2FE',
-                borderWidth: 1,
-                borderColor: '#7DD3FC',
-                padding: 8,
-                borderRadius: 8,
-                flex: 1,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6
-              }
-            ]}
-            onPress={() => handleEmail(item.email)}
-          >
-            <Icon name="email" size={16} color="#0369A1" />
-            <Text style={[
-              styles.apartmentActionTextNew,
-              { color: '#0369A1', fontFamily: Fonts.urbanist.semiBold, fontSize: 12 }
-            ]}>E-posta</Text>
-          </TouchableOpacity>
+          {item.email && (
+            <TouchableOpacity 
+              style={[
+                styles.apartmentActionButtonNew,
+                {
+                  backgroundColor: '#E0F2FE',
+                  borderWidth: 1,
+                  borderColor: '#7DD3FC',
+                  padding: 8,
+                  borderRadius: 8,
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6
+                }
+              ]}
+              onPress={() => handleEmail(item.email)}
+            >
+              <Icon name="email" size={16} color="#0369A1" />
+              <Text style={[
+                styles.apartmentActionTextNew,
+                { color: '#0369A1', fontFamily: Fonts.urbanist.semiBold, fontSize: 12 }
+              ]}>E-posta</Text>
+            </TouchableOpacity>
+          )}
 
           {item.contractFile && (
             <TouchableOpacity 
@@ -1979,8 +1982,7 @@ const styles = StyleSheet.create({
   tenantItemContentNew: {
     padding: 12,
     height: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
     justifyContent: 'space-between',
   },
   tenantHeaderNew: {
