@@ -1,5 +1,5 @@
 // Base URL'i tanımla
-export const API_BASE_URL = "https://3add-78-187-59-29.ngrok-free.app/api";
+export const API_BASE_URL = "https://fd41-78-187-59-29.ngrok-free.app/api";
 
 // Admin ID yönetimi için global değişken ve yönetim fonksiyonları
 let currentAdminId = 4;
@@ -78,6 +78,7 @@ export const API_ENDPOINTS = {
     BUILDING: {
         BASE: `${API_BASE_URL}/Buildings`,
         DETAIL: (id) => `${API_BASE_URL}/Buildings/${id}`,
+        APARTMENTS: (buildingId) => `${API_BASE_URL}/Apartment/building/${buildingId}`,
     },
 
     // Apartment endpoints
@@ -155,6 +156,23 @@ export const API_ENDPOINTS = {
     // Owner endpoints
     OWNER: {
         GET_DETAILS: (id) => `${API_BASE_URL}/Owner/${id}`,
+    },
+
+    // Finance endpoints
+    FINANCE: {
+        DASHBOARD: `${API_BASE_URL}/Finance/dashboard`,
+        BY_BUILDING: (buildingId) => `${API_BASE_URL}/Finance/building/${buildingId}`,
+        PAYMENTS: {
+            GET_ALL: `${API_BASE_URL}/Finance/payments`,
+            CREATE: `${API_BASE_URL}/Finance/payments`,
+            DETAIL: (id) => `${API_BASE_URL}/Finance/payments/${id}`,
+            UPDATE: (id) => `${API_BASE_URL}/Finance/payments/${id}`,
+            DELETE: (id) => `${API_BASE_URL}/Finance/payments/${id}`,
+            BY_APARTMENT: (apartmentId) => `${API_BASE_URL}/Finance/payments/apartment/${apartmentId}`,
+            BY_BUILDING: (buildingId) => `${API_BASE_URL}/Finance/payments/building/${buildingId}`,
+            OVERDUE: `${API_BASE_URL}/Finance/payments/overdue`,
+            STATISTICS: `${API_BASE_URL}/Finance/payments/statistics`
+        }
     },
 
     // User Profile endpoints

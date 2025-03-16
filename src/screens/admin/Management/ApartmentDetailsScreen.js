@@ -34,13 +34,31 @@ const ApartmentDetailsScreen = ({ route, navigation }) => {
 
   const fetchApartmentDetails = async () => {
     try {
-      console.log(`Fetching apartment details for apartmentId: ${apartmentId}`);
-      const response = await axios.get(API_ENDPOINTS.APARTMENT.GET_DETAILS(apartmentId));
-      console.log('Apartment API Response:', response.data);
-      setApartmentDetails(response.data.data);
-      setError(null);
+      console.log('=== Fetching Apartment Details ===');
+      console.log('Apartment ID:', apartmentId);
+      console.log('API Endpoint:', API_ENDPOINTS.APARTMENT.DETAIL(apartmentId));
+      
+      setLoading(true);
+      const response = await axios.get(API_ENDPOINTS.APARTMENT.DETAIL(apartmentId));
+      
+      console.log('=== API Response ===');
+      console.log('Status:', response.status);
+      console.log('Data:', JSON.stringify(response.data, null, 2));
+      
+      if (response.data.success) {
+        setApartmentDetails(response.data.data);
+        setError(null);
+      } else {
+        throw new Error(response.data.message || 'Veri alınamadı');
+      }
     } catch (err) {
-      console.error('Error fetching apartment details:', err);
+      console.error('=== Error Fetching Apartment Details ===');
+      console.error('Error Type:', err.name);
+      console.error('Error Message:', err.message);
+      if (err.response) {
+        console.error('Error Response:', JSON.stringify(err.response.data, null, 2));
+        console.error('Error Status:', err.response.status);
+      }
       setError('Daire detayları yüklenirken bir hata oluştu.');
     } finally {
       setLoading(false);
@@ -76,7 +94,17 @@ const ApartmentDetailsScreen = ({ route, navigation }) => {
   if (error) {
     return (
       <View style={styles.errorContainer}>
+        <Icon name="alert-circle-outline" size={48} color={Colors.error} />
         <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
+
+  if (!apartmentDetails) {
+    return (
+      <View style={styles.errorContainer}>
+        <Icon name="home-remove" size={48} color={Colors.error} />
+        <Text style={styles.errorText}>Daire bilgisi bulunamadı.</Text>
       </View>
     );
   }
@@ -86,7 +114,7 @@ const ApartmentDetailsScreen = ({ route, navigation }) => {
       {/* Header */}
       <Surface style={styles.headerCard} elevation={2}>
         <LinearGradient
-          colors={Gradients.primary}
+          colors={Gradients.greenBlue}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
@@ -100,8 +128,8 @@ const ApartmentDetailsScreen = ({ route, navigation }) => {
               </View>
             </View>
             <CustomBadge 
-              style={{ backgroundColor: apartmentDetails.status === 'Dolu' ? Colors.successLight : Colors.warningLight }}
-              textStyle={{ color: apartmentDetails.status === 'Dolu' ? Colors.success : Colors.warning }}
+              style={{ backgroundColor: apartmentDetails.status === 'Dolu' ? Colors.primaryLight : Colors.warningLight }}
+              textStyle={{ color: apartmentDetails.status === 'Dolu' ? Colors.surface : Colors.warning }}
             >
               {apartmentDetails.status}
             </CustomBadge>
@@ -268,11 +296,18 @@ const styles = StyleSheet.create({
     color: Colors.error,
     textAlign: 'center',
     fontFamily: Fonts.urbanist.medium,
+    marginTop: 8,
   },
   headerCard: {
     margin: 16,
     borderRadius: 16,
     overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   headerGradient: {
     padding: 20,
@@ -301,26 +336,23 @@ const styles = StyleSheet.create({
     color: Colors.surface,
     opacity: 0.9,
   },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    alignSelf: 'center',
-  },
-  statusText: {
-    fontFamily: Fonts.urbanist.semiBold,
-    fontSize: 12,
-  },
   detailsCard: {
     margin: 16,
     marginTop: 0,
     borderRadius: 16,
-    backgroundColor: Colors.surface,
+    backgroundColor: '#FFFFFF',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   sectionTitle: {
     fontSize: 18,
     fontFamily: Fonts.urbanist.bold,
-    color: Colors.text,
+    color: '#334155',
     marginBottom: 16,
   },
   detailsGrid: {
@@ -334,60 +366,74 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     width: '45%',
+    backgroundColor: '#F8FAFC',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   detailLabel: {
     fontSize: 12,
     fontFamily: Fonts.urbanist.medium,
-    color: Colors.textSecondary,
+    color: '#64748B',
   },
   detailValue: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: Fonts.urbanist.semiBold,
-    color: Colors.text,
+    color: '#334155',
   },
   notesContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: Colors.surfaceVariant,
+    backgroundColor: '#F8FAFC',
     padding: 12,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   notesText: {
     flex: 1,
     fontSize: 14,
     fontFamily: Fonts.urbanist.medium,
-    color: Colors.text,
+    color: '#475569',
   },
   contactInfo: {
     flexDirection: 'row',
     gap: 16,
+    backgroundColor: '#F8FAFC',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   avatar: {
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: '#E0F2FE',
   },
   contactDetails: {
     flex: 1,
     gap: 8,
   },
   contactName: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: Fonts.urbanist.bold,
-    color: Colors.text,
+    color: '#334155',
   },
   contactButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: '#E0F2FE',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#7DD3FC',
   },
   contactButtonText: {
     fontSize: 14,
     fontFamily: Fonts.urbanist.medium,
-    color: Colors.primary,
+    color: '#0369A1',
   },
   tenantDetails: {
     gap: 8,
@@ -397,22 +443,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    backgroundColor: '#F8FAFC',
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   leaseLabel: {
     fontSize: 14,
     fontFamily: Fonts.urbanist.medium,
-    color: Colors.textSecondary,
+    color: '#64748B',
   },
   leaseValue: {
     fontSize: 14,
     fontFamily: Fonts.urbanist.semiBold,
-    color: Colors.text,
+    color: '#334155',
   },
   paymentItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
+    backgroundColor: '#F8FAFC',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 8,
   },
   paymentInfo: {
     gap: 4,
@@ -420,12 +477,12 @@ const styles = StyleSheet.create({
   paymentAmount: {
     fontSize: 16,
     fontFamily: Fonts.urbanist.bold,
-    color: Colors.text,
+    color: '#334155',
   },
   paymentType: {
     fontSize: 14,
     fontFamily: Fonts.urbanist.medium,
-    color: Colors.textSecondary,
+    color: '#64748B',
   },
   paymentStatus: {
     alignItems: 'flex-end',
@@ -434,35 +491,23 @@ const styles = StyleSheet.create({
   paymentDate: {
     fontSize: 14,
     fontFamily: Fonts.urbanist.medium,
-    color: Colors.textSecondary,
-  },
-  paymentBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  paymentBadgeText: {
-    fontSize: 12,
-    fontFamily: Fonts.urbanist.medium,
+    color: '#64748B',
   },
   divider: {
-    backgroundColor: Colors.surfaceVariant,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 8,
   },
   customBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
     alignSelf: 'center',
-    
-    
+    borderWidth: 1,
   },
   customBadgeText: {
     fontSize: 14,
     fontFamily: Fonts.urbanist.semiBold,
     textAlign: 'center',
-    backgroundColor: Colors.primary,
-    padding: 5,
-  
-    borderRadius: 5,
   },
 });
 

@@ -175,101 +175,107 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
     opacity: menuAnim,
   };
 
-  const renderFABMenu = () => (
-    <View style={styles.fabContainer}>
-      <Animated.View style={[styles.fabMenuItem, menuItemsStyle]}>
-        <BlurView intensity={90} tint="light" style={[styles.menuItemBlur, { backgroundColor: colors.menuBackground }]}>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              toggleMenu();
-              navigation.navigate('CreateMeeting');
-            }}
-          >
-            <View style={[styles.menuItemIcon, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
-              <Ionicons name="calendar" size={18} color={colors.primary} />
-            </View>
-            <Text style={styles.menuItemText}>Toplantı Oluştur</Text>
-          </TouchableOpacity>
-        </BlurView>
-      </Animated.View>
+  const renderFABMenu = () => {
+    // Sadece Dashboard ekranında FAB menüsünü göster
+    const isDashboard = state.index === 0;
+    if (!isDashboard) return null;
 
-      <Animated.View 
-        style={[
-          styles.fabMenuItem, 
-          {
-            transform: [
-              {
-                translateY: menuAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, -120],
-                }),
-              },
-            ],
-            opacity: menuAnim,
-          }
-        ]}
-      >
-        <BlurView intensity={90} tint="light" style={[styles.menuItemBlur, { backgroundColor: colors.menuBackground }]}>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              toggleMenu();
-              navigation.navigate('CreateAnnouncement');
-            }}
-          >
-            <View style={[styles.menuItemIcon, { backgroundColor: 'rgba(236, 72, 153, 0.1)' }]}>
-              <Ionicons name="megaphone" size={18} color={colors.fabActive} />
-            </View>
-            <Text style={styles.menuItemText}>Duyuru Oluştur</Text>
-          </TouchableOpacity>
-        </BlurView>
-      </Animated.View>
+    return (
+      <View style={styles.fabContainer}>
+        <Animated.View style={[styles.fabMenuItem, menuItemsStyle]}>
+          <BlurView intensity={90} tint="light" style={[styles.menuItemBlur, { backgroundColor: colors.menuBackground }]}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                toggleMenu();
+                navigation.navigate('CreateMeeting');
+              }}
+            >
+              <View style={[styles.menuItemIcon, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
+                <Ionicons name="calendar" size={18} color={colors.primary} />
+              </View>
+              <Text style={styles.menuItemText}>Toplantı Oluştur</Text>
+            </TouchableOpacity>
+          </BlurView>
+        </Animated.View>
 
-      <Animated.View 
-        style={[
-          styles.fabMenuItem,
-          {
-            transform: [
-              {
-                translateY: menuAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, -180],
-                }),
-              },
-            ],
-            opacity: menuAnim,
-          }
-        ]}
-      >
-        <BlurView intensity={90} tint="light" style={[styles.menuItemBlur, { backgroundColor: colors.menuBackground }]}>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              toggleMenu();
-              navigation.navigate('Surveys');
-            }}
-          >
-            <View style={[styles.menuItemIcon, { backgroundColor: 'rgba(139, 92, 246, 0.1)' }]}>
-              <Ionicons name="clipboard" size={18} color={colors.secondary} />
-            </View>
-            <Text style={styles.menuItemText}>Anket Oluştur</Text>
-          </TouchableOpacity>
-        </BlurView>
-      </Animated.View>
+        <Animated.View 
+          style={[
+            styles.fabMenuItem, 
+            {
+              transform: [
+                {
+                  translateY: menuAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -120],
+                  }),
+                },
+              ],
+              opacity: menuAnim,
+            }
+          ]}
+        >
+          <BlurView intensity={90} tint="light" style={[styles.menuItemBlur, { backgroundColor: colors.menuBackground }]}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                toggleMenu();
+                navigation.navigate('CreateAnnouncement');
+              }}
+            >
+              <View style={[styles.menuItemIcon, { backgroundColor: 'rgba(236, 72, 153, 0.1)' }]}>
+                <Ionicons name="megaphone" size={18} color={colors.fabActive} />
+              </View>
+              <Text style={styles.menuItemText}>Duyuru Oluştur</Text>
+            </TouchableOpacity>
+          </BlurView>
+        </Animated.View>
 
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={toggleMenu}
-      >
-        <BlurView intensity={90} tint="light" style={[styles.fabBlur, { backgroundColor: colors.fabBackground }]}>
-          <Animated.View style={{ transform: [{ rotate: rotation }] }}>
-            <Ionicons name="add" size={30} color={isMenuOpen ? colors.fabActive : colors.primary} />
-          </Animated.View>
-        </BlurView>
-      </TouchableOpacity>
-    </View>
-  );
+        <Animated.View 
+          style={[
+            styles.fabMenuItem,
+            {
+              transform: [
+                {
+                  translateY: menuAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -180],
+                  }),
+                },
+              ],
+              opacity: menuAnim,
+            }
+          ]}
+        >
+          <BlurView intensity={90} tint="light" style={[styles.menuItemBlur, { backgroundColor: colors.menuBackground }]}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                toggleMenu();
+                navigation.navigate('Surveys');
+              }}
+            >
+              <View style={[styles.menuItemIcon, { backgroundColor: 'rgba(139, 92, 246, 0.1)' }]}>
+                <Ionicons name="clipboard" size={18} color={colors.secondary} />
+              </View>
+              <Text style={styles.menuItemText}>Anket Oluştur</Text>
+            </TouchableOpacity>
+          </BlurView>
+        </Animated.View>
+
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={toggleMenu}
+        >
+          <BlurView intensity={90} tint="light" style={[styles.fabBlur, { backgroundColor: colors.fabBackground }]}>
+            <Animated.View style={{ transform: [{ rotate: rotation }] }}>
+              <Ionicons name="add" size={30} color={isMenuOpen ? colors.fabActive : colors.primary} />
+            </Animated.View>
+          </BlurView>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.tabBarContainer}>
