@@ -7,7 +7,8 @@ import {
   Dimensions,
   Animated,
   Platform,
-  TouchableWithoutFeedback
+  TouchableWithoutFeedback,
+  FlatList
 } from 'react-native';
 import {
   Surface,
@@ -33,8 +34,10 @@ import * as Animatable from 'react-native-animatable';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../../../config/apiConfig';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Gradients } from '../../../constants/Colors';
+import Colors, { Gradients } from '../../../constants/Colors';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Icon } from '@expo/vector-icons';
+
 
 const { width } = Dimensions.get('window');
 
@@ -487,6 +490,281 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
   );
 };
 
+const OverduePaymentsList = ({ navigation, overduePayments = [] }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 5;
+
+  const filteredPayments = overduePayments.filter(payment => {
+    const searchLower = searchQuery.toLowerCase();
+    return (
+      payment.tenantName.toLowerCase().includes(searchLower) ||
+      payment.buildingName.toLowerCase().includes(searchLower) ||
+      payment.apartmentNumber.toString().includes(searchLower)
+    );
+  });
+
+  const paginatedPayments = filteredPayments.slice(
+    (page - 1) * itemsPerPage,
+    page * itemsPerPage
+  );
+
+  const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
+
+  const renderPaymentItem = ({ item }) => (
+    <Surface 
+      style={[styles.overduePaymentItem, { 
+        backgroundColor: '#FFFFFF',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        width: '100%',
+        marginHorizontal: 0
+      }]} 
+    >
+      <View style={styles.overduePaymentContent}>
+        {/* Header - Tenant Info & Status */}
+        <View style={styles.overduePaymentHeader}>
+          <View style={styles.tenantInfoContainer}>
+            <View style={[styles.statusIconContainer, {
+              backgroundColor: '#F1F5F9',
+              padding: 8,
+              borderRadius: 10
+            }]}>
+              <MaterialCommunityIcons name="clock-alert" size={24} color="#1BA74B" />
+            </View>
+            <View style={styles.tenantDetails}>
+              <Text style={[styles.tenantName, { 
+                fontSize: 16,
+                color: '#0F172A',
+                fontWeight: 'bold'
+              }]}>{item.tenantName}</Text>
+              <Text style={[styles.apartmentInfo, { 
+                fontSize: 13,
+                color: '#64748B'
+              }]}>{`${item.buildingName} - Daire ${item.apartmentNumber}`}</Text>
+            </View>
+          </View>
+          <View style={[styles.delayBadge, {
+            backgroundColor: '#FEF2F2',
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: '#FEE2E2'
+          }]}>
+            <Text style={{
+              fontSize: 12,
+              fontWeight: 'bold',
+              color: '#EF4444'
+            }}>{`${item.delayedDays} Gün Gecikme`}</Text>
+          </View>
+        </View>
+
+        {/* Payment Details */}
+        <View style={[styles.paymentDetailsContainer, {
+          backgroundColor: '#F8FAFC',
+          padding: 10,
+          borderRadius: 12,
+          marginVertical: 6,
+          borderWidth: 1,
+          borderColor: '#E2E8F0'
+        }]}>
+          <View style={styles.paymentDetail}>
+            <MaterialCommunityIcons name="cash" size={14} color="#64748B" />
+            <Text style={[styles.paymentLabel, { color: '#64748B', fontSize: 13 }]}>Toplam Tutar:</Text>
+            <Text style={[styles.paymentAmount, { color: '#0F172A', fontWeight: 'bold', fontSize: 13 }]}>
+              {item.totalAmount.toLocaleString('tr-TR')}₺
+            </Text>
+          </View>
+          
+          <View style={styles.paymentDetail}>
+            <MaterialCommunityIcons name="alert-circle" size={14} color="#EF4444" />
+            <Text style={[styles.paymentLabel, { color: '#64748B', fontSize: 13 }]}>Ceza Tutarı:</Text>
+            <Text style={[styles.paymentAmount, { color: '#EF4444', fontWeight: 'bold', fontSize: 13 }]}>
+              +{item.penaltyAmount.toLocaleString('tr-TR')}₺
+            </Text>
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity 
+            style={[styles.actionButton, {
+              backgroundColor: '#DCF5E8',
+              borderWidth: 1,
+              borderColor: '#DCF5E8',
+              padding: 8,
+              borderRadius: 8,
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 6
+            }]}
+          >
+            <MaterialCommunityIcons name="phone" size={14} color="#1B874B" />
+            <Text style={[styles.actionButtonText, { color: '#1B874B', marginLeft: 4, fontSize: 11 }]}>Ara</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.actionButton, {
+              backgroundColor: '#DCF5E8',
+              borderWidth: 1,
+              borderColor: '#DCF5E8',
+              padding: 8,
+              borderRadius: 8,
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 6
+            }]}
+          >
+            <MaterialCommunityIcons name="email" size={14} color="#1B874B" />
+            <Text style={[styles.actionButtonText, { color: '#1B874B', marginLeft: 4, fontSize: 11 }]}>E-posta</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.actionButton, {
+              backgroundColor: '#FEF2F2',
+              borderWidth: 1,
+              borderColor: '#FEE2E2',
+              padding: 8,
+              borderRadius: 8,
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }]}
+          >
+            <MaterialCommunityIcons name="bell" size={14} color="#EF4444" />
+            <Text style={[styles.actionButtonText, { color: '#EF4444', marginLeft: 4, fontSize: 11 }]}>Hatırlat</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Surface>
+  );
+
+  return (
+    <Card style={[styles.sectionCardNew]} elevation={2}>
+      <LinearGradient
+        colors={Gradients.indigo}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          borderRadius: 16,
+        }}
+      >
+        <Card.Title 
+          title="Geciken Ödemeler" 
+          titleStyle={[styles.sectionTitleNew, { color: '#FFFFFF' }]}
+          subtitle={`Toplam: ${filteredPayments.length}`}
+          subtitleStyle={[styles.sectionSubtitleNew, { color: 'rgba(255,255,255,0.8)' }]}
+          left={(props) => (
+            <View style={[styles.sectionIconContainerNew, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+              <MaterialCommunityIcons {...props} name="clock-alert" size={24} color="#FFFFFF" />
+            </View>
+          )}
+        />
+        <Card.Content style={{ padding: 0 }}>
+          {/* Payments List */}
+          <FlatList
+            data={paginatedPayments}
+            renderItem={renderPaymentItem}
+            keyExtractor={(item) => item.paymentId.toString()}
+            scrollEnabled={false}
+            contentContainerStyle={[styles.listContainerNew, { paddingHorizontal: 0 }]}
+            ListEmptyComponent={() => (
+              <View style={styles.emptyListContainer}>
+                <MaterialCommunityIcons name="check-circle" size={48} color="#22C55E" />
+                <Text style={styles.emptyListText}>Geciken ödeme bulunmuyor</Text>
+              </View>
+            )}
+          />
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <View style={styles.paginationContainerNew}>
+              <TouchableOpacity 
+                onPress={() => setPage(1)}
+                disabled={page === 1}
+                style={[
+                  styles.pageButtonNew,
+                  page === 1 && styles.pageButtonDisabledNew
+                ]}
+              >
+                <MaterialCommunityIcons 
+                  name="chevron-double-left" 
+                  size={18} 
+                  color={page === 1 ? '#94A3B8' : '#EF4444'} 
+                />
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                onPress={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                style={[
+                  styles.pageButtonNew,
+                  page === 1 && styles.pageButtonDisabledNew
+                ]}
+              >
+                <MaterialCommunityIcons 
+                  name="chevron-left" 
+                  size={18} 
+                  color={page === 1 ? '#94A3B8' : '#EF4444'} 
+                />
+              </TouchableOpacity>
+
+              <View style={styles.paginationSeparator} />
+              
+              <Text style={styles.paginationInfoText}>
+                Sayfa {page} / {totalPages}
+              </Text>
+
+              <View style={styles.paginationSeparator} />
+
+              <TouchableOpacity 
+                onPress={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                style={[
+                  styles.pageButtonNew,
+                  page === totalPages && styles.pageButtonDisabledNew
+                ]}
+              >
+                <MaterialCommunityIcons 
+                  name="chevron-right" 
+                  size={18} 
+                  color={page === totalPages ? '#94A3B8' : '#EF4444'} 
+                />
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                onPress={() => setPage(totalPages)}
+                disabled={page === totalPages}
+                style={[
+                  styles.pageButtonNew,
+                  page === totalPages && styles.pageButtonDisabledNew
+                ]}
+              >
+                <MaterialCommunityIcons 
+                  name="chevron-double-right" 
+                  size={18} 
+                  color={page === totalPages ? '#94A3B8' : '#EF4444'} 
+                />
+              </TouchableOpacity>
+            </View>
+          )}
+        </Card.Content>
+      </LinearGradient>
+    </Card>
+  );
+};
+
 const FinanceScreen = ({ navigation }) => {
   const theme = useTheme();
   const [loading, setLoading] = useState(true);
@@ -693,39 +971,59 @@ const FinanceScreen = ({ navigation }) => {
 
   const renderStatisticsCards = () => (
     <Animatable.View animation="fadeInUp" delay={300} style={styles.statisticsContainer}>
-      <Text style={styles.sectionTitle}>Genel İstatistikler</Text>
+      <Text style={[styles.sectionTitle, { color: Colors.text }]}>Genel İstatistikler</Text>
       <View style={styles.statisticsGrid}>
-        <Card style={styles.statisticsCard}>
-          <Card.Content>
-            <Text style={styles.statisticsLabel}>Toplam Gelir</Text>
-            <Text style={styles.statisticsValue}>
+        <Card style={[styles.statisticsCard, { overflow: 'hidden', backgroundColor: 'transparent', width: (width - 40) / 2 }]}>
+          <LinearGradient
+            colors={['#60A5FA', '#3B82F6']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ padding: 12, borderRadius: 12 }}
+          >
+            <Text style={[styles.statisticsLabel, { color: '#fff' }]}>Toplam Gelir</Text>
+            <Text style={[styles.statisticsValue, { color: '#fff' }]}>
               {statistics?.totalRevenue?.toLocaleString('tr-TR')}₺
             </Text>
-          </Card.Content>
+          </LinearGradient>
         </Card>
-        <Card style={styles.statisticsCard}>
-          <Card.Content>
-            <Text style={styles.statisticsLabel}>Toplam Ceza</Text>
-            <Text style={[styles.statisticsValue, { color: '#EF4444' }]}>
+        <Card style={[styles.statisticsCard, { overflow: 'hidden', backgroundColor: 'transparent', width: (width - 40) / 2 }]}>
+          <LinearGradient
+            colors={['#F87171', '#EF4444']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ padding: 12, borderRadius: 12 }}
+          >
+            <Text style={[styles.statisticsLabel, { color: '#fff' }]}>Toplam Ceza</Text>
+            <Text style={[styles.statisticsValue, { color: '#fff' }]}>
               {statistics?.totalPenaltyAmount?.toLocaleString('tr-TR')}₺
             </Text>
-          </Card.Content>
+          </LinearGradient>
         </Card>
-        <Card style={styles.statisticsCard}>
-          <Card.Content>
-            <Text style={styles.statisticsLabel}>Ortalama Ödeme</Text>
-            <Text style={styles.statisticsValue}>
+        <Card style={[styles.statisticsCard, { overflow: 'hidden', backgroundColor: 'transparent', width: (width - 40) / 2 }]}>
+          <LinearGradient
+            colors={['#4ADE80', '#22C55E']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ padding: 12, borderRadius: 12 }}
+          >
+            <Text style={[styles.statisticsLabel, { color: '#fff' }]}>Ortalama Ödeme</Text>
+            <Text style={[styles.statisticsValue, { color: '#fff' }]}>
               {statistics?.averagePaymentAmount?.toLocaleString('tr-TR')}₺
             </Text>
-          </Card.Content>
+          </LinearGradient>
         </Card>
-        <Card style={styles.statisticsCard}>
-          <Card.Content>
-            <Text style={styles.statisticsLabel}>Ort. Gecikme</Text>
-            <Text style={styles.statisticsValue}>
+        <Card style={[styles.statisticsCard, { overflow: 'hidden', backgroundColor: 'transparent', width: (width - 40) / 2 }]}>
+          <LinearGradient
+            colors={['#A78BFA', '#8B5CF6']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ padding: 12, borderRadius: 12 }}
+          >
+            <Text style={[styles.statisticsLabel, { color: '#fff' }]}>Ort. Gecikme</Text>
+            <Text style={[styles.statisticsValue, { color: '#fff' }]}>
               {`${statistics?.averageDelayDays || 0} Gün`}
             </Text>
-          </Card.Content>
+          </LinearGradient>
         </Card>
       </View>
     </Animatable.View>
@@ -742,7 +1040,7 @@ const FinanceScreen = ({ navigation }) => {
 
     return (
       <Animatable.View animation="fadeInUp" delay={200} style={styles.buildingsContainer}>
-        <Text style={styles.sectionTitle}>Binalar</Text>
+        <Text style={[styles.sectionTitle, { color: Colors.text }]}>Binalar</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {buildingFinances.map((building, index) => (
             <TouchableOpacity
@@ -848,39 +1146,15 @@ const FinanceScreen = ({ navigation }) => {
   };
 
   const renderOverduePayments = () => (
-    <Animatable.View animation="fadeInUp" delay={600} style={styles.overdueContainer}>
-      <Text style={styles.sectionTitle}>Geciken Ödemeler</Text>
-      {overduePayments.map((payment) => (
-        <Card key={payment.paymentId} style={styles.overdueCard}>
-          <Card.Content>
-            <View style={styles.overdueHeader}>
-              <View>
-                <Text style={styles.overdueTenant}>{payment.tenantName}</Text>
-                <Text style={styles.overdueApartment}>
-                  {`${payment.buildingName} - Daire ${payment.apartmentNumber}`}
-                </Text>
-              </View>
-              <Badge style={styles.overdueBadge}>
-                {`${payment.delayedDays} Gün Gecikme`}
-              </Badge>
-            </View>
-            <View style={styles.overdueDetails}>
-              <Text style={styles.overdueAmount}>
-                {payment.totalAmount.toLocaleString('tr-TR')}₺
-              </Text>
-              <Text style={styles.overduePenalty}>
-                +{payment.penaltyAmount.toLocaleString('tr-TR')}₺ Ceza
-              </Text>
-            </View>
-          </Card.Content>
-        </Card>
-      ))}
-    </Animatable.View>
+    <OverduePaymentsList 
+      navigation={navigation} 
+      overduePayments={overduePayments} 
+    />
   );
 
   return (
     <>
-      <ScrollView style={styles.container}>
+      <ScrollView style={[styles.container, { backgroundColor: Colors.background }]}>
         <View style={styles.header}>
           <IconButton
             icon="filter-variant"
@@ -911,7 +1185,7 @@ const FinanceScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F1F5F9',
   },
   loadingContainer: {
     flex: 1,
@@ -970,12 +1244,12 @@ const styles = StyleSheet.create({
   },
   buildingsContainer: {
     marginHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 12,
+    marginBottom: 8,
     color: '#1a1a1a',
   },
   buildingCardContainer: {
@@ -1076,14 +1350,14 @@ const styles = StyleSheet.create({
     margin: 16,
   },
   overdueCard: {
-    marginBottom: 12,
+   
     elevation: 2,
   },
   overdueHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+  
   },
   overdueTenant: {
     fontSize: 16,
@@ -1129,16 +1403,16 @@ const styles = StyleSheet.create({
   },
   statisticsContainer: {
     marginHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   statisticsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    gap: 8,
   },
   statisticsCard: {
-    width: (width - 48) / 2,
-    marginBottom: 12,
+    marginBottom: 8,
     elevation: 2,
   },
   statisticsLabel: {
@@ -1214,13 +1488,7 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-    color: '#1a1a1a',
+ 
   },
   dateContainer: {
     flexDirection: 'row',
@@ -1293,6 +1561,124 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: '#e5e7eb',
+  },
+  overduePaymentItem: {
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    width: '100%',
+    marginHorizontal: 0
+  },
+  overduePaymentContent: {
+    gap: 8,
+    width:"100%"
+  },
+  overduePaymentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  tenantInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusIconContainer: {
+    borderRadius: 8,
+  },
+  tenantDetails: {
+    gap: 2,
+  },
+  paymentDetailsContainer: {
+    gap: 3,
+    marginVertical: 6,
+  },
+  paymentDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  paymentLabel: {
+    fontSize: 13,
+    color: '#64748B',
+  },
+  paymentAmount: {
+    fontSize: 13,
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  actionButton: {
+    flex: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionButtonText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  sectionCardNew: {
+    margin: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  sectionTitleNew: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    
+    color: '#AAA',
+  },
+  sectionSubtitleNew: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+  },
+  sectionIconContainerNew: {
+    padding: 8,
+    borderRadius: 10,
+  },
+  separatorNew: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+  },
+  listContainerNew: {
+    padding: 16,
+    width: '100%'
+  },
+  emptyListContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyListText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 20,
+  },
+  paginationContainerNew: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+  },
+  pageButtonNew: {
+    padding: 8,
+    borderRadius: 8,
+  },
+  pageButtonDisabledNew: {
+    backgroundColor: '#E2E8F0',
+  },
+  paginationSeparator: {
+    width: 1,
+    backgroundColor: '#E2E8F0',
+  },
+  paginationInfoText: {
+    fontSize: 14,
+    color: '#666',
   },
 });
 

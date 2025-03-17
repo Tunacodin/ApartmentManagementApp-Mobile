@@ -17,8 +17,10 @@ import Theme from '../../../constants/Theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import { API_ENDPOINTS, getCurrentAdminId } from '../../../config/apiConfig';
+import * as Animatable from 'react-native-animatable';
 
 const { width } = Dimensions.get('window');
 
@@ -1240,191 +1242,33 @@ const TenantsList = ({ navigation, buildingId }) => {
   const totalPages = Math.ceil((filteredTenants?.length || 0) / itemsPerPage);
 
   const renderTenantItem = ({ item }) => (
-    <Surface 
-      style={[styles.tenantItemNew, { 
-        backgroundColor: '#F8FAFC',
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        height: 170
-        
-      }]} 
-    >
-      <View style={[styles.tenantItemContentNew, { padding: 12, height: '100%', flexDirection: 'column', justifyContent: 'space-between' }]}>
-        {/* Üst Kısım - İki Sütunlu Layout */}
-        <View style={{ flexDirection: 'row', marginBottom: 8 }}>
-          {/* Sol Sütun - Profil Resmi */}
-          <View style={{
-            backgroundColor: '#EBF5FB',
-            padding: 8,
-            borderRadius: 10,
-            marginRight: 12,
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 80
-          }}>
-            {item.profileImage ? (
-              <Avatar.Image 
-                size={60} 
-                source={{ uri: item.profileImage }}
-                style={{ backgroundColor: 'transparent' }}
-              />
-            ) : (
-              <Avatar.Text 
-                size={60} 
-                label={item.fullName.split(' ').map(n => n[0]).join('')}
-                style={{ backgroundColor: 'transparent' }}
-                labelStyle={{ color: Colors.primary, fontFamily: Fonts.urbanist.bold }}
-              />
-            )}
-          </View>
+    <Surface style={[styles.apartmentItemNew]}>
+      <View style={styles.tenantItemContent}>
+        {/* ... existing code ... */}
+        <View style={[styles.actionButtons, { marginBottom: 16 }]}>
+          <TouchableOpacity
+            style={[styles.actionButton, { marginBottom: 8 }]}
+            onPress={() => handleCall(item.phoneNumber)}
+          >
+            <MaterialCommunityIcons name="phone" size={20} color="#0369A1" />
+            <Text style={styles.actionButtonText}>Ara</Text>
+          </TouchableOpacity>
 
-          {/* Orta Kısım - Bilgiler */}
-          <View style={{ flex: 1, justifyContent: 'center' }}>
-            <Text style={[styles.tenantNameNew, { 
-              fontSize: 16, 
-              marginBottom: 4,
-              color: '#334155',
-              fontFamily: Fonts.urbanist.bold
-            }]}>{item.fullName}</Text>
+          <TouchableOpacity
+            style={[styles.actionButton, { marginBottom: 8 }]}
+            onPress={() => handleEmail(item.email)}
+          >
+            <MaterialCommunityIcons name="email" size={20} color="#0369A1" />
+            <Text style={styles.actionButtonText}>E-posta</Text>
+          </TouchableOpacity>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <View style={{
-                backgroundColor: '#EBF5FB',
-                padding: 6,
-                borderRadius: 8
-              }}>
-                <Icon name="home" size={16} color={Colors.primary} />
-              </View>
-              <Text style={{
-                fontSize: 14,
-                fontFamily: Fonts.urbanist.medium,
-                color: '#475569'
-              }}>Daire {item.apartmentNumber}</Text>
-            </View>
-
-            {item.phoneNumber && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <View style={{
-                  backgroundColor: '#EBF5FB',
-                  padding: 6,
-                  borderRadius: 8
-                }}>
-                  <Icon name="phone" size={16} color={Colors.primary} />
-                </View>
-                <Text style={{
-                  fontSize: 14,
-                  fontFamily: Fonts.urbanist.medium,
-                  color: '#475569'
-                }}>{item.phoneNumber}</Text>
-              </View>
-            )}
-
-            {item.email && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <View style={{
-                  backgroundColor: '#EBF5FB',
-                  padding: 6,
-                  borderRadius: 8
-                }}>
-                  <Icon name="email" size={16} color={Colors.primary} />
-                </View>
-                <Text style={{
-                  fontSize: 14,
-                  fontFamily: Fonts.urbanist.medium,
-                  color: '#475569'
-                }}>{item.email}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* Alt Kısım - Aksiyon Butonları */}
-        <View style={{ flexDirection: 'row', gap: 6 }}>
-          {item.phoneNumber && (
-            <TouchableOpacity 
-              style={[
-                styles.apartmentActionButtonNew,
-                {
-                  backgroundColor: '#E0F2FE',
-                  borderWidth: 1,
-                  borderColor: '#7DD3FC',
-                  padding: 8,
-                  borderRadius: 8,
-                  flex: 1,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6
-                }
-              ]}
-              onPress={() => handleCall(item.phoneNumber)}
-            >
-              <Icon name="phone" size={16} color="#0369A1" />
-              <Text style={[
-                styles.apartmentActionTextNew,
-                { color: '#0369A1', fontFamily: Fonts.urbanist.semiBold, fontSize: 12 }
-              ]}>Ara</Text>
-            </TouchableOpacity>
-          )}
-
-          {item.email && (
-            <TouchableOpacity 
-              style={[
-                styles.apartmentActionButtonNew,
-                {
-                  backgroundColor: '#E0F2FE',
-                  borderWidth: 1,
-                  borderColor: '#7DD3FC',
-                  padding: 8,
-                  borderRadius: 8,
-                  flex: 1,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6
-                }
-              ]}
-              onPress={() => handleEmail(item.email)}
-            >
-              <Icon name="email" size={16} color="#0369A1" />
-              <Text style={[
-                styles.apartmentActionTextNew,
-                { color: '#0369A1', fontFamily: Fonts.urbanist.semiBold, fontSize: 12 }
-              ]}>E-posta</Text>
-            </TouchableOpacity>
-          )}
-
-          {item.contractFile && (
-            <TouchableOpacity 
-              style={[
-                styles.apartmentActionButtonNew,
-                {
-                  backgroundColor: '#E0F2FE',
-                  borderWidth: 1,
-                  borderColor: '#7DD3FC',
-                  padding: 8,
-                  borderRadius: 8,
-                  flex: 1,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6
-                }
-              ]}
-              onPress={() => handleContract(item.contractFile)}
-            >
-              <Icon name="file-document" size={16} color="#0369A1" />
-              <Text style={[
-                styles.apartmentActionTextNew,
-                { color: '#0369A1', fontFamily: Fonts.urbanist.semiBold, fontSize: 12 }
-              ]}>Sözleşme</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={[styles.actionButton, { marginBottom: 8 }]}
+            onPress={() => handleContract(item.contractFile)}
+          >
+            <MaterialCommunityIcons name="file-document" size={20} color="#0369A1" />
+            <Text style={styles.actionButtonText}>Sözleşme</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Surface>
@@ -1521,7 +1365,7 @@ const TenantsList = ({ navigation, buildingId }) => {
                   page === 1 && styles.pageButtonDisabledNew
                 ]}
               >
-                <Icon 
+                <MaterialCommunityIcons 
                   name="chevron-left" 
                   size={18} 
                   color={page === 1 ? '#94A3B8' : Colors.primary} 
@@ -1544,7 +1388,7 @@ const TenantsList = ({ navigation, buildingId }) => {
                   page === totalPages && styles.pageButtonDisabledNew
                 ]}
               >
-                <Icon 
+                <MaterialCommunityIcons 
                   name="chevron-right" 
                   size={18} 
                   color={page === totalPages ? '#94A3B8' : Colors.primary} 

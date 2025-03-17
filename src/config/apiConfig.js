@@ -1,5 +1,5 @@
 // Base URL'i tanımla
-export const API_BASE_URL = "https://9323-78-187-59-29.ngrok-free.app/api";
+export const API_BASE_URL = "https://3d81-78-190-184-129.ngrok-free.app/api";
 
 // Admin ID yönetimi için global değişken ve yönetim fonksiyonları
 let currentAdminId = 4;
