@@ -1,5 +1,5 @@
 // Base URL'i tanımla
-export const API_BASE_URL = "https://3d81-78-190-184-129.ngrok-free.app/api";
+export const API_BASE_URL = "https://d9ad-78-187-59-29.ngrok-free.app/api";
 
 // Admin ID yönetimi için global değişken ve yönetim fonksiyonları
 let currentAdminId = 4;
@@ -65,7 +65,8 @@ export const API_ENDPOINTS = {
         APPROVE_TENANT_REQUEST: (requestId) => `${API_BASE_URL}/Admin/tenant-requests/${requestId}/approve`,
         REJECT_TENANT_REQUEST: (requestId) => `${API_BASE_URL}/Admin/tenant-requests/${requestId}/reject`,
         REPORTS: {
-            MEETINGS: (adminId) => `${API_BASE_URL}/AdminReports/${adminId}/reports/meetings`
+            MEETINGS: (adminId) => `${API_BASE_URL}/Admin/${adminId}/reports/meetings`,
+            SUMMARY: (adminId) => `${API_BASE_URL}/Reports/admin/${adminId}`
         },
         ENHANCED_DASHBOARD: (adminId) => `${API_BASE_URL}/Admin/enhanced-dashboard/${adminId}`,
         STATISTICS: (adminId) => `${API_BASE_URL}/Admin/${adminId}/statistics`,
@@ -183,7 +184,12 @@ export const API_ENDPOINTS = {
 
     // User Profile endpoints
     USER_PROFILE: {
-        GET_PROFILE_IMAGE: (id) => `${API_BASE_URL}/UserProfile/${id}`,
+        DETAIL: (userId) => `${API_BASE_URL}/UserProfile/${userId}`,
+        UPDATE: (userId) => `${API_BASE_URL}/UserProfile/${userId}`,
+        UPDATE_IMAGE: (userId) => `${API_BASE_URL}/UserProfile/${userId}/profile-image`,
+        DELETE_IMAGE: (userId) => `${API_BASE_URL}/UserProfile/${userId}/profile-image`,
+        UPDATE_DESCRIPTION: (userId) => `${API_BASE_URL}/UserProfile/${userId}/description`,
+        UPDATE_DISPLAY_NAME: (userId) => `${API_BASE_URL}/UserProfile/${userId}/display-name`
     }
 };
 

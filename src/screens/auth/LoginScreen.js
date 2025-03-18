@@ -208,7 +208,7 @@ const LoginScreen = ({ navigation, route }) => {
                 style={styles.link}
                 onPress={() => {
                   if (role === 'admin') {
-                    navigation.navigate('AdminNavigator');
+                    navigation.navigate('AdminInfo');
                   } else if (role === 'tenant') {
                     navigation.navigate('TenantNavigator');
                   }

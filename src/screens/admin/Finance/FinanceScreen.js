@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Dimensions,
   Animated,
-  Platform,
   TouchableWithoutFeedback,
   FlatList
 } from 'react-native';
@@ -215,12 +214,13 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
         >
           <View style={styles.drawerHeader}>
             <View style={styles.drawerHeaderContent}>
-              <MaterialCommunityIcons name="filter-variant" size={24} color="#1a1a1a" />
+              <MaterialCommunityIcons name="filter-variant" size={24} color={Colors.text} />
               <Text style={styles.drawerTitle}>Filtreler</Text>
             </View>
             <IconButton
               icon="close"
               size={24}
+              iconColor={Colors.text}
               onPress={onDismiss}
             />
           </View>
@@ -229,7 +229,7 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
             {/* Date Range Section */}
             <View style={styles.filterSection}>
               <View style={styles.sectionHeader}>
-                <MaterialCommunityIcons name="calendar-range" size={22} color="#666" />
+                <MaterialCommunityIcons name="calendar-range" size={22} color={Colors.text} />
                 <Text style={styles.sectionTitle}>Tarih Aralığı</Text>
               </View>
               <View style={styles.dateContainer}>
@@ -237,17 +237,17 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
                   style={styles.dateButton}
                   onPress={() => setShowStartDate(true)}
                 >
-                  <MaterialCommunityIcons name="calendar-start" size={20} color="#666" />
+                  <MaterialCommunityIcons name="calendar-start" size={20} color={Colors.text} />
                   <Text style={styles.dateButtonText}>
                     {localFilters.startDate.toLocaleDateString('tr-TR')}
                   </Text>
                 </TouchableOpacity>
-                <MaterialCommunityIcons name="arrow-right" size={20} color="#666" style={{ marginHorizontal: 8 }} />
+                <MaterialCommunityIcons name="arrow-right" size={20} color={Colors.text} />
                 <TouchableOpacity
                   style={styles.dateButton}
                   onPress={() => setShowEndDate(true)}
                 >
-                  <MaterialCommunityIcons name="calendar-end" size={20} color="#666" />
+                  <MaterialCommunityIcons name="calendar-end" size={20} color={Colors.text} />
                   <Text style={styles.dateButtonText}>
                     {localFilters.endDate.toLocaleDateString('tr-TR')}
                   </Text>
@@ -296,7 +296,7 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
             {/* Location Section */}
             <View style={styles.filterSection}>
               <View style={styles.sectionHeader}>
-                <MaterialCommunityIcons name="map-marker" size={22} color="#666" />
+                <MaterialCommunityIcons name="map-marker" size={22} color={Colors.text} />
                 <Text style={styles.sectionTitle}>Lokasyon</Text>
               </View>
               <TextInput
@@ -321,15 +321,15 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
             {/* Payment Type Section */}
             <View style={styles.filterSection}>
               <View style={styles.sectionHeader}>
-                <MaterialCommunityIcons name="cash-multiple" size={22} color="#666" />
+                <MaterialCommunityIcons name="cash-multiple" size={22} color={Colors.text} />
                 <Text style={styles.sectionTitle}>Ödeme Tipi</Text>
               </View>
               <View style={styles.chipGrid}>
                 {[
-                  { label: 'Nakit', icon: 'cash' },
-                  { label: 'Kredi Kartı', icon: 'credit-card' },
-                  { label: 'Havale/EFT', icon: 'bank-transfer' },
-                  { label: 'Diğer', icon: 'dots-horizontal' }
+                  { label: 'Nakit', icon: 'cash', color: '#22C55E' },
+                  { label: 'Kredi Kartı', icon: 'credit-card', color: '#6366F1' },
+                  { label: 'Havale/EFT', icon: 'bank-transfer', color: '#8B5CF6' },
+                  { label: 'Diğer', icon: 'dots-horizontal', color: '#F59E0B' }
                 ].map((type) => (
                   <Chip
                     key={type.label}
@@ -338,12 +338,18 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
                       ...prev,
                       paymentType: prev.paymentType === type.label ? null : type.label
                     }))}
-                    style={styles.filterChip}
+                    style={[
+                      styles.filterChip,
+                      localFilters.paymentType === type.label && { backgroundColor: type.color }
+                    ]}
+                    textStyle={{
+                      color: localFilters.paymentType === type.label ? '#FFFFFF' : Colors.text
+                    }}
                     icon={() => (
                       <MaterialCommunityIcons
                         name={type.icon}
                         size={18}
-                        color={localFilters.paymentType === type.label ? '#fff' : '#666'}
+                        color={localFilters.paymentType === type.label ? '#FFFFFF' : type.color}
                       />
                     )}
                   >
@@ -358,7 +364,7 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
             {/* Payment Status Section */}
             <View style={styles.filterSection}>
               <View style={styles.sectionHeader}>
-                <MaterialCommunityIcons name="checkbox-marked-circle" size={22} color="#666" />
+                <MaterialCommunityIcons name="checkbox-marked-circle" size={22} color={Colors.text} />
                 <Text style={styles.sectionTitle}>Ödeme Durumu</Text>
               </View>
               <View style={styles.chipGrid}>
@@ -376,13 +382,16 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
                     }))}
                     style={[
                       styles.filterChip,
-                      { borderColor: status.color }
+                      localFilters.paymentStatus === status.label && { backgroundColor: status.color }
                     ]}
+                    textStyle={{
+                      color: localFilters.paymentStatus === status.label ? '#FFFFFF' : Colors.text
+                    }}
                     icon={() => (
                       <MaterialCommunityIcons
                         name={status.icon}
                         size={18}
-                        color={localFilters.paymentStatus === status.label ? '#fff' : status.color}
+                        color={localFilters.paymentStatus === status.label ? '#FFFFFF' : status.color}
                       />
                     )}
                   >
@@ -394,36 +403,17 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
 
             <Divider style={styles.divider} />
 
-            {/* Overdue Switch */}
-            <View style={styles.filterSection}>
-              <View style={styles.switchContainer}>
-                <View style={styles.switchLeft}>
-                  <MaterialCommunityIcons name="alert-circle" size={22} color="#666" />
-                  <Text style={styles.switchLabel}>Sadece Geciken Ödemeler</Text>
-                </View>
-                <Switch
-                  value={localFilters.isOverdueOnly}
-                  onValueChange={(value) => setLocalFilters(prev => ({
-                    ...prev,
-                    isOverdueOnly: value
-                  }))}
-                />
-              </View>
-            </View>
-
-            <Divider style={styles.divider} />
-
             {/* Sort Section */}
             <View style={styles.filterSection}>
               <View style={styles.sectionHeader}>
-                <MaterialCommunityIcons name="sort" size={22} color="#666" />
+                <MaterialCommunityIcons name="sort" size={22} color={Colors.text} />
                 <Text style={styles.sectionTitle}>Sıralama</Text>
               </View>
               <View style={styles.chipGrid}>
                 {[
-                  { label: 'Tarihe Göre', value: 'date', icon: 'calendar' },
-                  { label: 'Tutara Göre', value: 'amount', icon: 'cash' },
-                  { label: 'Gecikmeye Göre', value: 'delay', icon: 'clock-alert' }
+                  { label: 'Tarihe Göre', value: 'date', icon: 'calendar', color: '#6366F1' },
+                  { label: 'Tutara Göre', value: 'amount', icon: 'cash', color: '#22C55E' },
+                  { label: 'Gecikmeye Göre', value: 'delay', icon: 'clock-alert', color: '#EF4444' }
                 ].map((sort) => (
                   <Chip
                     key={sort.value}
@@ -432,12 +422,18 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
                       ...prev,
                       sortBy: sort.value
                     }))}
-                    style={styles.filterChip}
+                    style={[
+                      styles.filterChip,
+                      localFilters.sortBy === sort.value && { backgroundColor: sort.color }
+                    ]}
+                    textStyle={{
+                      color: localFilters.sortBy === sort.value ? '#FFFFFF' : Colors.text
+                    }}
                     icon={() => (
                       <MaterialCommunityIcons
                         name={sort.icon}
                         size={18}
-                        color={localFilters.sortBy === sort.value ? '#fff' : '#666'}
+                        color={localFilters.sortBy === sort.value ? '#FFFFFF' : sort.color}
                       />
                     )}
                   >
@@ -669,6 +665,16 @@ const OverduePaymentsList = ({ navigation, overduePayments = [] }) => {
             <View style={[styles.sectionIconContainerNew, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
               <MaterialCommunityIcons {...props} name="clock-alert" size={24} color="#FFFFFF" />
             </View>
+          )}
+          right={(props) => (
+            <IconButton
+              {...props}
+              icon="filter-variant"
+              iconColor="#FFFFFF"
+              size={24}
+              onPress={() => setFilterModalVisible(true)}
+              style={{ marginRight: 8 }}
+            />
           )}
         />
         <Card.Content style={{ padding: 0 }}>
@@ -1040,12 +1046,30 @@ const FinanceScreen = ({ navigation }) => {
 
     return (
       <Animatable.View animation="fadeInUp" delay={200} style={styles.buildingsContainer}>
-        <Text style={[styles.sectionTitle, { color: Colors.text }]}>Binalar</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {buildingFinances.map((building, index) => (
+        <View style={styles.buildingsHeader}>
+          <Text style={[styles.sectionTitle, { color: Colors.text }]}>Binalar</Text>
+          {selectedBuilding && (
+            <TouchableOpacity 
+              onPress={() => {
+                setSelectedBuilding(null);
+                fetchFinanceData();
+              }}
+              style={styles.clearFilterButton}
+            >
+              <MaterialCommunityIcons name="close" size={16} color={Colors.text} />
+              <Text style={styles.clearFilterText}>Tümü</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <FlatList
+          data={buildingFinances}
+          renderItem={({ item, index }) => (
             <TouchableOpacity
-              key={building.buildingId}
-              onPress={() => setSelectedBuilding(building.buildingId)}
+              onPress={() => {
+                setSelectedBuilding(item.buildingId);
+                fetchFinanceData(item.buildingId);
+              }}
+              style={{ marginRight: 12 }}
             >
               <Animatable.View
                 animation="fadeIn"
@@ -1058,26 +1082,30 @@ const FinanceScreen = ({ navigation }) => {
                   end={{ x: 1, y: 1 }}
                   style={[
                     styles.buildingCard,
-                    selectedBuilding === building.buildingId && styles.selectedBuildingCard
+                    selectedBuilding === item.buildingId && { borderWidth: 2, borderColor: '#FFFFFF' }
                   ]}
                 >
-                  <Text style={styles.buildingCardTitle}>{building.buildingName}</Text>
+                  <Text style={styles.buildingCardTitle}>{item.buildingName}</Text>
                   <View style={styles.buildingCardStats}>
                     <Text style={styles.buildingCardAmount}>
-                      {building.monthlyCollectedAmount.toLocaleString('tr-TR')}₺
+                      {item.monthlyCollectedAmount.toLocaleString('tr-TR')}₺
                     </Text>
                     <Badge style={[styles.buildingCardBadge, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
-                      {`${building.collectionRate}%`}
+                      {`${item.collectionRate}%`}
                     </Badge>
                   </View>
                   <Text style={styles.buildingCardSubtitle}>
-                    {`${building.paidApartments}/${building.totalApartments} Daire`}
+                    {`${item.paidApartments}/${item.totalApartments} Daire`}
                   </Text>
                 </LinearGradient>
               </Animatable.View>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+          )}
+          keyExtractor={(item) => item.buildingId.toString()}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingRight: 16 }}
+        />
       </Animatable.View>
     );
   };
@@ -1155,13 +1183,6 @@ const FinanceScreen = ({ navigation }) => {
   return (
     <>
       <ScrollView style={[styles.container, { backgroundColor: Colors.background }]}>
-        <View style={styles.header}>
-          <IconButton
-            icon="filter-variant"
-            size={24}
-            onPress={() => setFilterModalVisible(true)}
-          />
-        </View>
         {renderSummaryCard()}
         {renderStatisticsCards()}
         {renderBuildingsList()}
@@ -1442,7 +1463,7 @@ const styles = StyleSheet.create({
   },
   drawerContent: {
     width: '85%',
-    backgroundColor: 'white',
+    backgroundColor: '#F8FAFC',
     height: '100%',
     position: 'absolute',
     right: 0,
@@ -1462,8 +1483,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    backgroundColor: '#fff',
+    borderBottomColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
     elevation: 2,
   },
   drawerHeaderContent: {
@@ -1474,40 +1495,47 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginLeft: 12,
-    color: '#1a1a1a',
+    color: Colors.text,
   },
   drawerBody: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F8FAFC',
   },
   filterSection: {
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     marginBottom: 1,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
- 
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+    marginLeft: 8,
   },
   dateContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
   },
   dateButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#F1F5F9',
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#E2E8F0',
   },
   dateButtonText: {
     marginLeft: 8,
-    color: '#1a1a1a',
+    color: Colors.text,
     fontSize: 14,
   },
   input: {
@@ -1516,10 +1544,12 @@ const styles = StyleSheet.create({
   chipGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -4,
+    gap: 8,
+    marginTop: 8,
   },
   filterChip: {
-    margin: 4,
+    backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
   },
   switchContainer: {
     flexDirection: 'row',
@@ -1534,33 +1564,33 @@ const styles = StyleSheet.create({
   switchLabel: {
     marginLeft: 8,
     fontSize: 16,
-    color: '#1a1a1a',
+    color: Colors.text,
   },
   sortDirectionContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 16,
+    gap: 8,
   },
   sortButton: {
     flex: 1,
-    marginHorizontal: 4,
   },
   drawerFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    backgroundColor: '#fff',
+    borderTopColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
     elevation: 2,
+    gap: 8,
   },
   footerButton: {
     flex: 1,
-    marginHorizontal: 4,
   },
   divider: {
     height: 1,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: '#E2E8F0',
   },
   overduePaymentItem: {
     borderRadius: 12,
@@ -1679,6 +1709,27 @@ const styles = StyleSheet.create({
   paginationInfoText: {
     fontSize: 14,
     color: '#666',
+  },
+  buildingsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  clearFilterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  clearFilterText: {
+    fontSize: 14,
+    color: Colors.text,
+    marginLeft: 4,
   },
 });
 

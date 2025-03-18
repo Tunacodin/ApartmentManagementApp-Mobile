@@ -12,13 +12,14 @@ import DashboardScreen from "../screens/admin/Dashboard/DashboardScreen"; // Adm
 import Splash from "../screens/auth/Splash";
 import HelloScreen from "../screens/auth/HelloScreen";
 import ForgotPasswordScreen from "../screens/common/ForgotPasswordScreen";
+import AdminInfoScreen from "../screens/admin/create/AdminInfoScreen"; // Yönetici kayıt ekranı
 
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
   return ( 
     <Stack.Navigator
-      initialRouteName="AdminNavigator"
+      initialRouteName="Splash"
       screenOptions={{ 
         headerShown: false,
         contentStyle: {
@@ -33,7 +34,8 @@ export default function AppNavigator() {
 
       {/* Rol seçim ve giriş ekranları */}
       <Stack.Screen name="RoleScreen" component={RoleScreen} />
-      <Stack.Screen name="LoginScreen" component={LoginScreen} initialParams={{ role: 'admin' }} />
+      <Stack.Screen name="LoginScreen" component={LoginScreen} />
+      <Stack.Screen name="AdminInfo" component={AdminInfoScreen} />
 
       {/*Şifremi Unuttum */}
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />

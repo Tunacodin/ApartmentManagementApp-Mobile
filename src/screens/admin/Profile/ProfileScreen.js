@@ -1,47 +1,66 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   Image,
-  TextInput,
   Alert,
   ActivityIndicator,
-  Modal
+  Platform,
+  KeyboardAvoidingView
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import axios from 'axios';
-import { API_ENDPOINTS, getCurrentAdminId } from '../../../config/apiConfig';
-import Button from '../../../components/ui/Button';
+import { API_ENDPOINTS } from '../../../config/apiConfig';
+import { Colors } from '../../../constants/Colors';
+import Fonts from '../../../constants/Fonts';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Gradients } from '../../../constants/Colors';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { 
+  Surface, 
+  Text, 
+  TextInput, 
+  Button, 
+  Chip, 
+  Avatar, 
+  Card, 
+  Title, 
+  Paragraph,
+  IconButton,
+  useTheme
+} from 'react-native-paper';
+import { useNavigation } from '@react-navigation/native';
 
 const ProfileScreen = () => {
+  const navigation = useNavigation();
+  const theme = useTheme();
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState(null);
   const [isEditingContact, setIsEditingContact] = useState(false);
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   
   // Form states
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [description, setDescription] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const scrollViewRef = React.useRef(null);
 
   const fetchProfileData = async () => {
     try {
-      const adminId = getCurrentAdminId();
-      const response = await axios.get(API_ENDPOINTS.ADMIN.DETAIL(adminId));
+      const response = await axios.get(API_ENDPOINTS.USER_PROFILE.DETAIL(4));
       
       if (response.data.success) {
-        setProfileData(response.data.data);
-        setEmail(response.data.data.email);
-        setPhoneNumber(response.data.data.phoneNumber);
-        setDescription(response.data.data.description || '');
+        const profileData = response.data.data;
+        console.log('Profil Verisi:', JSON.stringify(profileData, null, 2));
+        
+        setProfileData(profileData);
+        setEmail(profileData.email || '');
+        setPhoneNumber(profileData.phoneNumber || '');
+        setDescription(profileData.description || '');
       }
     } catch (error) {
       console.error('Profil bilgileri alınamadı:', error);
@@ -57,13 +76,9 @@ const ProfileScreen = () => {
 
   const handleUpdateProfile = async () => {
     try {
-      const adminId = getCurrentAdminId();
       const response = await axios.put(
-        API_ENDPOINTS.ADMIN.PROFILE.UPDATE(adminId),
-        {
-          description,
-          profileImageUrl: profileData.profileImageUrl
-        }
+        API_ENDPOINTS.USER_PROFILE.UPDATE_DESCRIPTION(4),
+        { description }
       );
 
       if (response.data.success) {
@@ -78,9 +93,8 @@ const ProfileScreen = () => {
 
   const handleUpdateContact = async () => {
     try {
-      const adminId = getCurrentAdminId();
       const response = await axios.put(
-        API_ENDPOINTS.ADMIN.PROFILE.UPDATE_CONTACT(adminId),
+        API_ENDPOINTS.USER_PROFILE.UPDATE(4),
         { email, phoneNumber }
       );
 
@@ -94,34 +108,6 @@ const ProfileScreen = () => {
     }
   };
 
-  const handleChangePassword = async () => {
-    if (newPassword !== confirmPassword) {
-      Alert.alert('Hata', 'Yeni şifreler eşleşmiyor');
-      return;
-    }
-
-    try {
-      const adminId = getCurrentAdminId();
-      const response = await axios.put(
-        API_ENDPOINTS.ADMIN.PROFILE.UPDATE_PASSWORD(adminId),
-        {
-          currentPassword,
-          newPassword
-        }
-      );
-
-      if (response.data.success) {
-        Alert.alert('Başarılı', 'Şifreniz güncellendi');
-        setIsChangingPassword(false);
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
-      }
-    } catch (error) {
-      Alert.alert('Hata', 'Şifre güncellenirken bir hata oluştu');
-    }
-  };
-
   const pickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -132,7 +118,6 @@ const ProfileScreen = () => {
       });
 
       if (!result.canceled) {
-        const adminId = getCurrentAdminId();
         const formData = new FormData();
         formData.append('image', {
           uri: result.assets[0].uri,
@@ -140,8 +125,10 @@ const ProfileScreen = () => {
           name: 'profile-image.jpg',
         });
 
+        console.log('Gönderilen Resim:', formData);
+
         const response = await axios.put(
-          API_ENDPOINTS.ADMIN.PROFILE.UPDATE(adminId),
+          API_ENDPOINTS.USER_PROFILE.UPDATE_IMAGE(4),
           formData,
           {
             headers: {
@@ -151,190 +138,291 @@ const ProfileScreen = () => {
         );
 
         if (response.data.success) {
-          setProfileData({ ...profileData, profileImageUrl: response.data.data.profileImageUrl });
+          console.log('Resim Yükleme Cevabı:', response.data);
+          setProfileData(prevData => ({
+            ...prevData,
+            imageUrl: response.data.data.imageUrl
+          }));
         }
       }
     } catch (error) {
+      console.error('Resim yükleme hatası:', error);
       Alert.alert('Hata', 'Profil fotoğrafı güncellenirken bir hata oluştu');
     }
+  };
+
+  const handleDescriptionEdit = () => {
+    setIsEditingDescription(true);
+    // Kısa bir gecikme ile scroll yapıyoruz çünkü TextInput'un render olması için zaman gerekiyor
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  };
+
+  const handleLogout = async () => {
+    Alert.alert(
+      'Çıkış Yap',
+      'Çıkış yapmak istediğinize emin misiniz?',
+      [
+        {
+          text: 'İptal',
+          style: 'cancel'
+        },
+        {
+          text: 'Çıkış Yap',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await AsyncStorage.multiRemove([
+                'userId',
+                'userEmail',
+                'userRole',
+                'adminId'
+              ]);
+              
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'LoginScreen' }],
+              });
+            } catch (error) {
+              console.error('Çıkış yapma hatası:', error);
+              Alert.alert('Hata', 'Çıkış yapılırken bir hata oluştu');
+            }
+          }
+        }
+      ]
+    );
   };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Profil Başlığı */}
-      <View style={styles.header}>
-        <View style={styles.profileImageContainer}>
-          <TouchableOpacity onPress={pickImage}>
-            {profileData?.profileImageUrl ? (
-              <Image
-                source={{ uri: profileData.profileImageUrl }}
-                style={styles.profileImage}
-              />
-            ) : (
-              <View style={[styles.profileImage, styles.noImage]}>
-                <Text style={styles.initials}>
-                  {profileData?.fullName?.split(' ').map(n => n[0]).join('')}
-                </Text>
-              </View>
-            )}
-            <View style={styles.editImageButton}>
-              <Ionicons name="camera" size={20} color="#fff" />
-            </View>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.name}>{profileData?.fullName}</Text>
-        <Text style={styles.email}>{profileData?.email}</Text>
-      </View>
-
-      {/* Yönetim Bilgileri */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>{profileData?.managedBuildingsCount}</Text>
-          <Text style={styles.statLabel}>Yönetilen Bina</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>
-            {new Date(profileData?.lastLoginDate).toLocaleDateString()}
-          </Text>
-          <Text style={styles.statLabel}>Son Giriş</Text>
-        </View>
-      </View>
-
-      {/* Profil Bilgileri */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Profil Bilgileri</Text>
-          <TouchableOpacity onPress={() => setIsEditingDescription(!isEditingDescription)}>
-            <Ionicons name={isEditingDescription ? "close" : "create-outline"} size={24} color="#007AFF" />
-          </TouchableOpacity>
-        </View>
-        {isEditingDescription ? (
-          <View style={styles.editContainer}>
-            <TextInput
-              style={styles.input}
-              value={description}
-              onChangeText={setDescription}
-              placeholder="Profil açıklaması"
-              multiline
-            />
-            <Button
-              title="Kaydet"
-              onPress={handleUpdateProfile}
-              variant="primary"
-            />
-          </View>
-        ) : (
-          <Text style={styles.descriptionText}>
-            {profileData?.description || 'Henüz bir açıklama eklenmemiş.'}
-          </Text>
-        )}
-      </View>
-
-      {/* İletişim Bilgileri */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>İletişim Bilgileri</Text>
-          <TouchableOpacity onPress={() => setIsEditingContact(!isEditingContact)}>
-            <Ionicons name={isEditingContact ? "close" : "create-outline"} size={24} color="#007AFF" />
-          </TouchableOpacity>
-        </View>
-        {isEditingContact ? (
-          <View style={styles.editContainer}>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="E-posta"
-              keyboardType="email-address"
-            />
-            <TextInput
-              style={styles.input}
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              placeholder="Telefon"
-              keyboardType="phone-pad"
-            />
-            <Button
-              title="Kaydet"
-              onPress={handleUpdateContact}
-              variant="primary"
-            />
-          </View>
-        ) : (
-          <>
-            <View style={styles.infoRow}>
-              <Ionicons name="mail-outline" size={20} color="#666" />
-              <Text style={styles.infoText}>{profileData?.email}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Ionicons name="call-outline" size={20} color="#666" />
-              <Text style={styles.infoText}>{profileData?.phoneNumber}</Text>
-            </View>
-          </>
-        )}
-      </View>
-
-      {/* Şifre Değiştirme */}
-      <View style={styles.section}>
-        <Button
-          title="Şifre Değiştir"
-          onPress={() => setIsChangingPassword(true)}
-          variant="outline"
-          icon={<Ionicons name="lock-closed-outline" size={20} color="#007AFF" />}
-        />
-      </View>
-
-      {/* Şifre Değiştirme Modal */}
-      <Modal
-        visible={isChangingPassword}
-        animationType="slide"
-        transparent={true}
+    <ScrollView 
+      ref={scrollViewRef}
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      bounces={false}
+    >
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        enabled
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Şifre Değiştir</Text>
-              <TouchableOpacity onPress={() => setIsChangingPassword(false)}>
-                <Ionicons name="close" size={24} color="#666" />
+        <Surface style={styles.sectionCardNew} elevation={1}>
+          <LinearGradient
+            colors={Gradients.indigo}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.header}
+          >
+            <View style={styles.profileImageContainer}>
+              <TouchableOpacity onPress={pickImage}>
+                {profileData?.imageUrl ? (
+                  <Avatar.Image
+                    size={120}
+                    source={{ uri: profileData.imageUrl }}
+                    style={styles.profileImage}
+                  />
+                ) : (
+                  <Avatar.Text
+                    size={120}
+                    label={profileData?.fullName?.split(' ').map(n => n[0]).join('') || 'U'}
+                    style={styles.profileImage}
+                  />
+                )}
+                <IconButton
+                  icon="camera"
+                  size={20}
+                  iconColor="#fff"
+                  style={styles.editImageButton}
+                  onPress={pickImage}
+                />
               </TouchableOpacity>
             </View>
-            <TextInput
-              style={styles.input}
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              placeholder="Mevcut Şifre"
-              secureTextEntry
-            />
-            <TextInput
-              style={styles.input}
-              value={newPassword}
-              onChangeText={setNewPassword}
-              placeholder="Yeni Şifre"
-              secureTextEntry
-            />
-            <TextInput
-              style={styles.input}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Yeni Şifre (Tekrar)"
-              secureTextEntry
-            />
-            <Button
-              title="Şifreyi Güncelle"
-              onPress={handleChangePassword}
-              variant="primary"
-            />
-          </View>
-        </View>
-      </Modal>
+            <Text variant="headlineMedium" style={styles.name}>{profileData?.fullName}</Text>
+            <Chip 
+              icon="shield-account"
+              style={[styles.roleBadge, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}
+              textStyle={{ color: '#FFFFFF' }}
+            >
+              {profileData?.role === 'admin' ? 'Yönetici' : 'Kiracı'}
+            </Chip>
+          </LinearGradient>
+        </Surface>
+
+        <Card style={styles.mainCard}>
+          <LinearGradient
+            colors={['#334155', '#1E293B']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.gradientContent}
+          >
+            <Card.Content style={styles.cardContent}>
+              <View style={styles.compactSection}>
+                {/* Durum ve Son Güncelleme */}
+                <View style={styles.statusRow}>
+                  <View style={styles.statusItem}>
+                    <MaterialCommunityIcons name="account-check" size={24} color="#6366F1" />
+                    <View style={styles.statusTextContainer}>
+                      <Text style={styles.statusLabel}>Durum</Text>
+                      <Text style={[styles.statusValue, { color: Colors.success }]}>
+                        {profileData?.isActive ? 'Aktif' : 'Pasif'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={[styles.statusItem, styles.borderLeft]}>
+                    <MaterialCommunityIcons name="clock-outline" size={24} color="#6366F1" />
+                    <View style={styles.statusTextContainer}>
+                      <Text style={styles.statusLabel}>Son Güncelleme</Text>
+                      <Text style={styles.statusValue}>
+                        {profileData?.profileUpdatedAt ? 
+                          new Date(profileData.profileUpdatedAt).toLocaleDateString('tr-TR', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) : 
+                          '-'
+                        }
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.separator} />
+
+                {/* İletişim Bilgileri */}
+                {isEditingContact ? (
+                  <View style={styles.editContainer}>
+                    <TextInput
+                      mode="outlined"
+                      label="E-posta"
+                      value={email}
+                      onChangeText={setEmail}
+                      keyboardType="email-address"
+                      style={styles.input}
+                      outlineColor="#EC4899"
+                      activeOutlineColor="#EC4899"
+                      textColor="#F8FAFC"
+                    />
+                    <TextInput
+                      mode="outlined"
+                      label="Telefon"
+                      value={phoneNumber}
+                      onChangeText={setPhoneNumber}
+                      keyboardType="phone-pad"
+                      style={styles.input}
+                      outlineColor="#EC4899"
+                      activeOutlineColor="#EC4899"
+                      textColor="#F8FAFC"
+                    />
+                    <Button
+                      mode="contained"
+                      onPress={handleUpdateContact}
+                      style={[styles.button, { backgroundColor: '#EC4899' }]}
+                    >
+                      Kaydet
+                    </Button>
+                  </View>
+                ) : (
+                  <View style={styles.contactContainer}>
+                    <View style={styles.contactItem}>
+                      <MaterialCommunityIcons name="email-outline" size={24} color="#EC4899" />
+                      <View style={styles.contactTextContainer}>
+                        <Text style={styles.contactLabel}>E-posta</Text>
+                        <Text style={styles.contactValue}>{profileData?.email}</Text>
+                      </View>
+                      <IconButton
+                        icon="pencil"
+                        size={20}
+                        onPress={() => setIsEditingContact(true)}
+                        style={[styles.editIconButton, { backgroundColor: 'rgba(236, 72, 153, 0.2)' }]}
+                        iconColor="#EC4899"
+                      />
+                    </View>
+                    <View style={[styles.contactItem, { marginTop: 16 }]}>
+                      <MaterialCommunityIcons name="phone-outline" size={24} color="#EC4899" />
+                      <View style={styles.contactTextContainer}>
+                        <Text style={styles.contactLabel}>Telefon</Text>
+                        <Text style={styles.contactValue}>{profileData?.phoneNumber}</Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                <View style={styles.separator} />
+
+                {/* Profil Açıklaması */}
+                {isEditingDescription ? (
+                  <View style={styles.editContainer}>
+                    <TextInput
+                      mode="outlined"
+                      label="Profil Açıklaması"
+                      value={description}
+                      onChangeText={setDescription}
+                      multiline
+                      numberOfLines={4}
+                      style={[styles.input, styles.textArea]}
+                      outlineColor="#22C55E"
+                      activeOutlineColor="#22C55E"
+                      textColor="#F8FAFC"
+                    />
+                    <Button
+                      mode="contained"
+                      onPress={handleUpdateProfile}
+                      style={[styles.button, { backgroundColor: '#22C55E' }]}
+                    >
+                      Kaydet
+                    </Button>
+                  </View>
+                ) : (
+                  <View style={styles.descriptionContainer}>
+                    <View style={styles.descriptionHeader}>
+                      <MaterialCommunityIcons name="text-box" size={24} color="#22C55E" />
+                      <Text style={styles.descriptionTitle}>Profil Açıklaması</Text>
+                      <IconButton
+                        icon="pencil"
+                        size={20}
+                        onPress={handleDescriptionEdit}
+                        style={[styles.editIconButton, { backgroundColor: 'rgba(34, 197, 94, 0.2)' }]}
+                        iconColor="#22C55E"
+                      />
+                    </View>
+                    <Paragraph style={styles.descriptionText}>
+                      {profileData?.description || 'Henüz bir açıklama eklenmemiş.'}
+                    </Paragraph>
+                  </View>
+                )}
+
+                <View style={styles.separator} />
+
+                {/* Çıkış Yap Butonu */}
+                <View style={styles.logoutContainer}>
+                  <Button
+                    mode="contained"
+                    onPress={handleLogout}
+                    style={styles.logoutButton}
+                    contentStyle={styles.logoutButtonContent}
+                    icon="logout"
+                  >
+                    Çıkış Yap
+                  </Button>
+                </View>
+              </View>
+            </Card.Content>
+          </LinearGradient>
+        </Card>
+      </KeyboardAvoidingView>
     </ScrollView>
   );
 };
@@ -342,137 +430,226 @@ const ProfileScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: Colors.background,
+  },
+  contentContainer: {
+    flexGrow: 1,
+    paddingBottom: Platform.OS === 'ios' ? 120 : 90,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: Colors.background,
+  },
+  sectionCardNew: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginHorizontal: 16,
+    marginVertical: 8,
+  },
+  mainCard: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
   header: {
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#fff',
+    borderRadius: 16,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 24,
   },
   profileImageContainer: {
-    marginBottom: 15,
+    marginBottom: 16,
   },
   profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
-  noImage: {
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  initials: {
-    color: '#fff',
-    fontSize: 36,
-    fontWeight: 'bold',
+    borderWidth: 4,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   editImageButton: {
     position: 'absolute',
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#007AFF',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
+    right: -8,
+    bottom: -8,
+    backgroundColor: Colors.primary,
   },
   name: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 5,
+    fontFamily: Fonts.urbanist.bold,
+    color: '#FFFFFF',
+    marginBottom: 8,
   },
-  email: {
-    fontSize: 16,
-    color: '#666',
-  },
-  statsContainer: {
+  roleBadge: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: 20,
-    backgroundColor: '#fff',
-    marginTop: 1,
-  },
-  statItem: {
     alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#007AFF',
-  },
-  statLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 5,
-  },
-  section: {
-    backgroundColor: '#fff',
-    padding: 20,
-    marginTop: 10,
+    borderRadius: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 16,
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sectionIconContainer: {
+    marginRight: 12,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontFamily: Fonts.urbanist.bold,
+    color: '#1F2937',
   },
-  editContainer: {
-    gap: 10,
+  editButton: {
+    borderRadius: 12,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  descriptionText: {
-    fontSize: 16,
-    color: '#444',
-    lineHeight: 24,
+  apartmentInfo: {
+    gap: 12,
   },
   infoRow: {
+    marginBottom: 8,
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+  },
+  infoContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
   },
-  infoText: {
-    fontSize: 16,
-    color: '#444',
-    marginLeft: 10,
-  },
-  modalContainer: {
+  infoLabel: {
+    fontSize: 14,
+    fontFamily: Fonts.urbanist.medium,
+    color: '#6B7280',
     flex: 1,
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: 20,
+    marginLeft: 12,
   },
-  modalContent: {
-    backgroundColor: '#fff',
+  infoValue: {
+    fontSize: 14,
+    fontFamily: Fonts.urbanist.semiBold,
+    color: '#1F2937',
+    flex: 2,
+  },
+  editContainer: {
+    gap: 12,
+  },
+  input: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  button: {
+    marginTop: 8,
     borderRadius: 12,
-    padding: 20,
-    gap: 15,
   },
-  modalHeader: {
+  textArea: {
+    height: 100,
+  },
+  descriptionContainer: {
+    gap: 12,
+  },
+  descriptionText: {
+    fontSize: 14,
+    color: '#F1F5F9',
+    fontFamily: Fonts.urbanist.regular,
+    lineHeight: 22,
+    marginLeft: 36,
+  },
+  gradientContent: {
+    borderRadius: 16,
+  },
+  cardContent: {
+    padding: 16,
+  },
+  compactSection: {
+    gap: 24,
+  },
+  statusRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
+    alignItems: 'flex-start',
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  statusItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 12,
+  },
+  borderLeft: {
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  statusTextContainer: {
+    marginLeft: 12,
+  },
+  statusLabel: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontFamily: Fonts.urbanist.medium,
+    marginBottom: 4,
+  },
+  statusValue: {
+    fontSize: 14,
+    color: '#F1F5F9',
+    fontFamily: Fonts.urbanist.semiBold,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  contactContainer: {
+    gap: 16,
+  },
+  contactItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  contactTextContainer: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  contactLabel: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontFamily: Fonts.urbanist.medium,
+    marginBottom: 4,
+  },
+  contactValue: {
+    fontSize: 14,
+    color: '#F1F5F9',
+    fontFamily: Fonts.urbanist.semiBold,
+  },
+  editIconButton: {
+    margin: 0,
+    width: 32,
+    height: 32,
+  },
+  descriptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  descriptionTitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontFamily: Fonts.urbanist.medium,
+    flex: 1,
+    marginLeft: 12,
+  },
+  logoutContainer: {
+    marginTop: 8,
+  },
+  logoutButton: {
+    backgroundColor: '#EF4444',
+    borderRadius: 12,
+  },
+  logoutButtonContent: {
+    height: 48,
   },
 });
 
