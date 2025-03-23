@@ -36,6 +36,9 @@ import SurveyResultsScreen from '../screens/admin/Reports/SurveyResultsScreen';
 // Profile Screens
 import ProfileScreen from '../screens/admin/Profile/ProfileScreen';
 
+// Import the creation screens
+import ApartmentInfoScreen from '../screens/admin/create/ApartmentInfoScreen';
+
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -129,6 +132,28 @@ const ReportsStack = () => (
 const ProfileStack = () => (
   <Stack.Navigator screenOptions={screenOptions}>
     <Stack.Screen name="ProfileMain" component={ProfileScreen} />
+  </Stack.Navigator>
+);
+
+// Create Stack Navigator
+const CreateStack = () => (
+  <Stack.Navigator screenOptions={screenOptions}>
+    <Stack.Screen 
+      name="ApartmentInfo" 
+      component={ApartmentInfoScreen}
+      options={{
+        title: 'Bina Bilgileri',
+        headerTitleStyle: styles.headerTitle,
+      }}
+    />
+    <Stack.Screen 
+      name="Finance" 
+      component={FinanceScreen}
+      options={{
+        title: 'Finansal Bilgiler',
+        headerTitleStyle: styles.headerTitle,
+      }}
+    />
   </Stack.Navigator>
 );
 
@@ -407,15 +432,9 @@ const AdminTabs = () => (
 
 // Main Admin Navigator
 const AdminNavigator = () => (
-  <Stack.Navigator 
-    screenOptions={{ 
-      headerShown: false,
-      contentStyle: {
-        backgroundColor: '#1A202C',
-      },
-    }}
-  >
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="AdminTabs" component={AdminTabs} />
+    <Stack.Screen name="Create" component={CreateStack} />
   </Stack.Navigator>
 );
 

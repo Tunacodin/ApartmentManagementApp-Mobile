@@ -1,4 +1,4 @@
-import React, { forwardRef, useImperativeHandle, useState } from "react";
+import React, { useState } from "react";
 import {
   View,
   StyleSheet,
@@ -6,223 +6,131 @@ import {
   Platform,
   ScrollView,
   KeyboardAvoidingView,
-  TouchableWithoutFeedback,
-  Keyboard,
+  TouchableOpacity,
+  StatusBar,
+  Dimensions,
   Alert,
-  TouchableOpacity
 } from "react-native";
-import { TextInput as PaperInput, Button as PaperButton } from "react-native-paper";
+import { TextInput as PaperInput } from "react-native-paper";
 import { MaterialIcons } from "react-native-vector-icons";
-import colors from "../../../styles/colors";
-import axios from "axios";
-import { IYZICO_API_CONFIG } from "../../../config/apiConfig";
+import { Colors, Gradients } from '../../../constants/Colors';
+import Fonts from '../../../constants/Fonts';
 import LottieView from "lottie-react-native";
 import animate from "../../../assets/json/animFinance.json";
+import { LinearGradient } from 'expo-linear-gradient';
 
-const FinancialInfoScreen = forwardRef((props, ref) => {
-  const [cardAlias, setCardAlias] = useState("");
+const FinancialInfoScreen = ({ navigation }) => {
   const [cardHolder, setCardHolder] = useState("");
   const [cardNumber, setCardNumber] = useState("");
   const [expireMonth, setExpireMonth] = useState("");
   const [expireYear, setExpireYear] = useState("");
   const [cvv, setCvv] = useState("");
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [cards, setCards] = useState([]);
-  const [showForm, setShowForm] = useState(false);
 
   const formatCardNumber = (text) => {
-    // Sadece rakamları al
     const numbers = text.replace(/\D/g, '');
-    // 4'lü gruplar halinde formatla
     const formatted = numbers.match(/.{1,4}/g)?.join(' ') || numbers;
-    return formatted.substr(0, 19); // Max 16 rakam + 3 boşluk
+    return formatted.substr(0, 19);
   };
 
-  const formatExpiryDate = (text) => {
-    const numbers = text.replace(/\D/g, '');
-    if (numbers.length >= 2) {
-      return `${numbers.substr(0, 2)}/${numbers.substr(2, 2)}`;
-    }
-    return numbers;
-  };
-
-  const handleSaveCard = async () => {
-    if (!validateForm()) return;
-
-    setLoading(true);
-    try {
-      const cardDetails = {
-        cardAlias: cardAlias || "Varsayılan Kart",
-        email,
-        expireYear: `20${expireYear}`,
-        expireMonth: expireMonth,
-        cardNumber: cardNumber.replace(/\s/g, ''),
-        cardHolderName: cardHolder,
-        externalId: `user-${Date.now()}`,
-        locale: "tr",
-        conversationId: Date.now().toString()
-      };
-
-      const response = await saveCardToIyzipay(cardDetails);
-      
-      // Kartı listeye ekle
-      setCards(prevCards => [...prevCards, {
-        ...cardDetails,
-        cardNumber: `**** **** **** ${cardNumber.slice(-4)}`, // Güvenlik için son 4 hane
-        id: Date.now().toString()
-      }]);
-
-      // Formu temizle ve gizle
-      resetForm();
-      setShowForm(false);
-      
-      Alert.alert("Başarılı", "Kart bilgileri başarıyla kaydedildi.");
-    } catch (error) {
-      Alert.alert("Hata", error.message || "Kart kaydedilirken bir hata oluştu.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveCardToIyzipay = async (cardDetails) => {
-    try {
-      const response = await axios.post(
-        `${IYZICO_API_CONFIG.baseUrl}/cardstorage/card`,
-        cardDetails,
-        {
-          headers: {
-            "Authorization": `Basic ${btoa(`${IYZICO_API_CONFIG.apiKey}:${IYZICO_API_CONFIG.secretKey}`)}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      return response.data;
-    } catch (error) {
-      console.error("Kart Kaydetme Hatası:", error.response?.data || error.message);
-      throw error;
-    }
-  };
-
-  const validateForm = () => {
-    if (!cardHolder.trim()) {
-      Alert.alert("Hata", "Kart sahibi adı boş bırakılamaz!");
-      return false;
-    }
-    if (!cardNumber.trim() || cardNumber.replace(/\s/g, '').length !== 16) {
-      Alert.alert("Hata", "Geçerli bir kart numarası giriniz!");
-      return false;
-    }
-    if (!email.trim() || !email.includes('@')) {
-      Alert.alert("Hata", "Geçerli bir e-posta adresi giriniz!");
-      return false;
-    }
-    if (!expireMonth || !expireYear || expireMonth.length !== 2 || expireYear.length !== 2) {
-      Alert.alert("Hata", "Geçerli bir son kullanma tarihi giriniz!");
-      return false;
-    }
-    if (!cvv.trim() || cvv.length !== 3) {
-      Alert.alert("Hata", "Geçerli bir CVV giriniz!");
-      return false;
-    }
-    return true;
-  };
-
-  // Form resetleme fonksiyonu
-  const resetForm = () => {
-    setCardAlias("");
-    setCardHolder("");
-    setCardNumber("");
-    setExpireMonth("");
-    setExpireYear("");
-    setCvv("");
-    setEmail("");
-  };
-
-  // Kart silme fonksiyonu
-  const handleDeleteCard = (index) => {
+  const handleComplete = () => {
     Alert.alert(
-      "Kartı Sil",
-      "Bu kartı silmek istediğinizden emin misiniz?",
+      "Kayıt Tamamlanıyor",
+      "Kayıt işleminiz başarıyla tamamlandı. Giriş ekranına yönlendirileceksiniz.",
       [
-        { text: "İptal", style: "cancel" },
-        { 
-          text: "Sil", 
-          style: "destructive",
-          onPress: () => {
-            setCards(prevCards => prevCards.filter((_, i) => i !== index));
-            Alert.alert("Başarılı", "Kart başarıyla silindi.");
-          }
+        {
+          text: "Tamam",
+          onPress: () => navigation.navigate('LoginScreen', { role: 'admin' })
         }
       ]
     );
   };
 
-  const handleEditCard = (card) => {
-    // Form alanlarını seçilen kart bilgileriyle doldur
-    setCardHolder(card.cardHolderName);
-    setCardNumber(card.cardNumber);
-    setExpireMonth(card.expireMonth);
-    setExpireYear(card.expireYear.slice(-2));
-    setEmail(card.email);
-    
-    // Form görünümünü aç
-    setShowForm(true);
-  };
-
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <View style={styles.headerContainer}>
-            <LottieView source={animate} autoPlay loop style={styles.animation} />
-            <View style={styles.titleContainer}>
-              <Text style={styles.title}>Hesap Bilgileri</Text>
-            </View>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={Gradients.indigo[0]} />
+      
+      {/* Sabit Header */}
+      <LinearGradient
+        colors={Gradients.indigo}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerGradient}
+      >
+        <View style={styles.headerContent}>
+          <View style={styles.animationContainer}>
+            <LottieView 
+              source={animate} 
+              autoPlay 
+              loop 
+              style={styles.animation}
+            />
           </View>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>Finansal Bilgiler</Text>
+            <Text style={styles.headerSubtitle}>Ödeme bilgilerinizi girin</Text>
+          </View>
+        </View>
+      </LinearGradient>
 
-          {showForm ? (
-            <View style={styles.form}>
-              <View style={styles.cardPreview}>
-                <View style={styles.cardFront}>
-                  <Text style={styles.cardType}>CREDIT CARD</Text>
-                  <Text style={styles.cardNumber}>
-                    {cardNumber || '•••• •••• •••• ••••'}
-                  </Text>
-                  <View style={styles.cardBottom}>
-                    <View>
-                      <Text style={styles.cardLabel}>CARD HOLDER</Text>
-                      <Text style={styles.cardHolder}>
-                        {cardHolder || 'YOUR NAME'}
-                      </Text>
-                    </View>
-                    <View>
-                      <Text style={styles.cardLabel}>EXPIRES</Text>
-                      <Text style={styles.cardExpiry}>
-                        {expireMonth || 'MM'}/{expireYear || 'YY'}
-                      </Text>
-                    </View>
+      {/* Kaydırılabilir İçerik */}
+      <KeyboardAvoidingView 
+        style={styles.contentContainer} 
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollViewContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+        >
+          <View style={styles.formContent}>
+            <View style={styles.cardPreview}>
+              <View style={styles.cardFront}>
+                <Text style={styles.cardType}>CREDIT CARD</Text>
+                <Text style={styles.cardNumber}>
+                  {cardNumber || '•••• •••• •••• ••••'}
+                </Text>
+                <View style={styles.cardBottom}>
+                  <View>
+                    <Text style={styles.cardLabel}>CARD HOLDER</Text>
+                    <Text style={styles.cardHolder}>
+                      {cardHolder || 'YOUR NAME'}
+                    </Text>
+                  </View>
+                  <View>
+                    <Text style={styles.cardLabel}>EXPIRES</Text>
+                    <Text style={styles.cardExpiry}>
+                      {expireMonth || 'MM'}/{expireYear || 'YY'}
+                    </Text>
                   </View>
                 </View>
               </View>
+            </View>
 
+            <View style={styles.inputWrapper}>
               <View style={styles.inputContainer}>
-                <MaterialIcons name="person" size={24} color={colors.primary} />
+                <View style={styles.iconWrapper}>
+                  <MaterialIcons name="person" size={20} color={Colors.primary} />
+                </View>
                 <PaperInput
                   mode="outlined"
                   label="Kart Sahibi"
                   value={cardHolder}
                   onChangeText={setCardHolder}
                   style={styles.input}
+                  outlineColor="#E2E8F0"
+                  activeOutlineColor={Colors.primary}
+                  theme={{ colors: { background: '#F8FAFC' }}}
                   autoCapitalize="characters"
                 />
               </View>
 
               <View style={styles.inputContainer}>
-                <MaterialIcons name="credit-card" size={24} color={colors.primary} />
+                <View style={styles.iconWrapper}>
+                  <MaterialIcons name="credit-card" size={20} color={Colors.primary} />
+                </View>
                 <PaperInput
                   mode="outlined"
                   label="Kart Numarası"
@@ -230,12 +138,17 @@ const FinancialInfoScreen = forwardRef((props, ref) => {
                   onChangeText={(text) => setCardNumber(formatCardNumber(text))}
                   keyboardType="numeric"
                   style={styles.input}
+                  outlineColor="#E2E8F0"
+                  activeOutlineColor={Colors.primary}
+                  theme={{ colors: { background: '#F8FAFC' }}}
                 />
               </View>
 
               <View style={styles.row}>
                 <View style={[styles.inputContainer, styles.halfWidth]}>
-                  <MaterialIcons name="date-range" size={24} color={colors.primary} />
+                  <View style={styles.iconWrapper}>
+                    <MaterialIcons name="date-range" size={20} color={Colors.primary} />
+                  </View>
                   <PaperInput
                     mode="outlined"
                     label="Son Kullanma Ay"
@@ -244,6 +157,9 @@ const FinancialInfoScreen = forwardRef((props, ref) => {
                     keyboardType="numeric"
                     maxLength={2}
                     style={styles.input}
+                    outlineColor="#E2E8F0"
+                    activeOutlineColor={Colors.primary}
+                    theme={{ colors: { background: '#F8FAFC' }}}
                   />
                 </View>
 
@@ -256,12 +172,17 @@ const FinancialInfoScreen = forwardRef((props, ref) => {
                     keyboardType="numeric"
                     maxLength={2}
                     style={styles.input}
+                    outlineColor="#E2E8F0"
+                    activeOutlineColor={Colors.primary}
+                    theme={{ colors: { background: '#F8FAFC' }}}
                   />
                 </View>
               </View>
 
               <View style={styles.inputContainer}>
-                <MaterialIcons name="lock" size={24} color={colors.primary} />
+                <View style={styles.iconWrapper}>
+                  <MaterialIcons name="lock" size={20} color={Colors.primary} />
+                </View>
                 <PaperInput
                   mode="outlined"
                   label="CVV"
@@ -271,11 +192,16 @@ const FinancialInfoScreen = forwardRef((props, ref) => {
                   maxLength={3}
                   secureTextEntry
                   style={styles.input}
+                  outlineColor="#E2E8F0"
+                  activeOutlineColor={Colors.primary}
+                  theme={{ colors: { background: '#F8FAFC' }}}
                 />
               </View>
 
               <View style={styles.inputContainer}>
-                <MaterialIcons name="email" size={24} color={colors.primary} />
+                <View style={styles.iconWrapper}>
+                  <MaterialIcons name="email" size={20} color={Colors.primary} />
+                </View>
                 <PaperInput
                   mode="outlined"
                   label="E-posta"
@@ -284,256 +210,212 @@ const FinancialInfoScreen = forwardRef((props, ref) => {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   style={styles.input}
+                  outlineColor="#E2E8F0"
+                  activeOutlineColor={Colors.primary}
+                  theme={{ colors: { background: '#F8FAFC' }}}
                 />
               </View>
+            </View>
 
-              <PaperButton
-                mode="contained"
-                onPress={handleSaveCard}
-                style={styles.button}
-                loading={loading}
-                disabled={loading}
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={[styles.submitButton, { backgroundColor: Colors.success }]}
+                onPress={handleComplete}
               >
-                Kartı Kaydet
-              </PaperButton>
-            </View>
-          ) : (
-            <View style={styles.cardsContainer}>
-              {cards.length > 0 && (
-                <>
-                  <Text style={styles.sectionTitle}>Mevcut Hesaplar</Text>
-                  {cards.map((card, index) => (
-                    <View key={card.id} style={styles.cardItem}>
-                      <View style={styles.cardInfo}>
-                        <Text style={styles.cardNumberText}>{card.cardNumber}</Text>
-                        <Text style={styles.cardHolderText}>{card.cardHolderName}</Text>
-                        <Text style={styles.cardExpiryText}>
-                          Son Kullanma: {card.expireMonth}/{card.expireYear.slice(-2)}
-                        </Text>
-                      </View>
-                      <View style={styles.actionButtons}>
-                        <TouchableOpacity 
-                          onPress={() => handleEditCard(card)}
-                          style={styles.editButton}
-                        >
-                          <MaterialIcons name="edit" size={24} color={colors.primary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          onPress={() => handleDeleteCard(index)}
-                          style={styles.deleteButton}
-                        >
-                          <MaterialIcons name="delete" size={24} color={colors.error} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ))}
-                </>
-              )}
-              {cards.length === 0 && (
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.noCardText}>
-                    Henüz hesap bilgisi eklemediniz
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-        </ScrollView>
-      </TouchableWithoutFeedback>
+                <Text style={styles.submitButtonText}>
+                  Kayıt İşlemini Tamamla
+                </Text>
+                <MaterialIcons name="check-circle" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
+              </TouchableOpacity>
 
-      {!showForm && (
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={() => setShowForm(true)}
-        >
-          <MaterialIcons name="add" size={30} color={colors.white} />
-        </TouchableOpacity>
-      )}
-    </KeyboardAvoidingView>
+              <View style={styles.navigationButtons}>
+                <TouchableOpacity
+                  style={[styles.submitButton, { flex: 1, marginRight: 8 }]}
+                  onPress={() => navigation.navigate('ApartmentInfo')}
+                >
+                  <Text style={styles.submitButtonText}>
+                    Apartman
+                  </Text>
+                  <MaterialIcons name="arrow-back" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.submitButton, { flex: 1, marginLeft: 8, backgroundColor: '#4F46E5' }]}
+                  onPress={() => navigation.navigate('AdminInfo')}
+                >
+                  <Text style={styles.submitButtonText}>
+                    Yönetici
+                  </Text>
+                  <MaterialIcons name="arrow-back" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+          <View style={{ height: 50 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
-});
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
   },
-  scrollContainer: {
+  headerGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 280,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    zIndex: 1,
+  },
+  contentContainer: {
+    flex: 1,
+    marginTop: 260,
+  },
+  scrollViewContent: {
+    paddingTop: 20,
+  },
+  headerContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  animationContainer: {
+    width: 140,
+    height: 140,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 70,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  animation: {
+    width: 120,
+    height: 120,
+  },
+  headerTextContainer: {
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontFamily: Fonts.urbanist.bold,
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    fontFamily: Fonts.urbanist.medium,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  formContent: {
     padding: 20,
+    backgroundColor: '#FFFFFF',
   },
   cardPreview: {
     height: 200,
-    perspective: 1000,
-    marginBottom: 20,
+    marginBottom: 24,
   },
   cardFront: {
-    backgroundColor: colors.primary,
+    backgroundColor: Colors.primary,
     borderRadius: 16,
     padding: 20,
     height: '100%',
-    shadowColor: colors.black,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
   },
   cardType: {
-    color: colors.white,
+    color: '#FFFFFF',
     fontSize: 14,
     marginBottom: 40,
+    fontFamily: Fonts.urbanist.medium,
   },
   cardNumber: {
-    color: colors.white,
+    color: '#FFFFFF',
     fontSize: 22,
     letterSpacing: 2,
     marginBottom: 20,
+    fontFamily: Fonts.urbanist.bold,
   },
   cardBottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   cardLabel: {
-    color: colors.white,
+    color: '#FFFFFF',
     fontSize: 10,
     marginBottom: 4,
+    fontFamily: Fonts.urbanist.medium,
   },
   cardHolder: {
-    color: colors.white,
+    color: '#FFFFFF',
     fontSize: 16,
+    fontFamily: Fonts.urbanist.bold,
   },
   cardExpiry: {
-    color: colors.white,
+    color: '#FFFFFF',
     fontSize: 16,
+    fontFamily: Fonts.urbanist.bold,
   },
-  form: {
-    marginTop: 20,
-    paddingHorizontal: 16,
+  inputWrapper: {
+    gap: 16,
+    marginBottom: 24,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
+    gap: 12,
+  },
+  iconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EBF5FB',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   input: {
     flex: 1,
-    marginLeft: 10,
-    backgroundColor: colors.white,
+    backgroundColor: '#F8FAFC',
+    fontSize: 14,
+    fontFamily: Fonts.urbanist.medium,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  halfWidth: {
-    width: '48%',
-  },
-  button: {
-    marginTop: 20,
-    paddingVertical: 8,
-    backgroundColor: colors.primary,
-  },
-  titleContainer: {
-    paddingVertical: 10,
-    paddingHorizontal: 30,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: colors.primary,
-    textAlign: "center",
-  },
-  cardsContainer: {
-    paddingHorizontal: 16,
-    marginTop: 20,
-  },
-  cardItem: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    elevation: 3,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  cardInfo: {
-    flex: 1,
-  },
-  cardNumberText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.black,
-    marginBottom: 4,
-  },
-  cardHolderText: {
-    fontSize: 14,
-    color: colors.darkGray,
-    marginBottom: 2,
-  },
-  cardExpiryText: {
-    fontSize: 14,
-    color: colors.darkGray,
-  },
-  deleteButton: {
-    padding: 8,
-    backgroundColor: colors.lightRed,
-    borderRadius: 8,
-  },
-  addButton: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  noCardText: {
-    textAlign: 'center',
-    fontSize: 18,
-    color: colors.gray,
-    marginTop: 130,
-  },
-  animation: {
-    width: 250,
-    height: 250,
-    alignSelf: 'center',
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: colors.primary,
-    marginBottom: 15,
-    marginLeft: 5,
-  },
-  actionButtons: {
-    flexDirection: 'row',
     gap: 12,
   },
-  editButton: {
-    padding: 8,
-    backgroundColor: colors.lightBlue,
-    borderRadius: 8,
+  halfWidth: {
+    flex: 1,
   },
-  headerContainer: {
-    justifyContent: 'center',
+  buttonContainer: {
+    marginTop: 10,
+    gap: 12,
+  },
+  navigationButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  submitButton: {
+    backgroundColor: Colors.primary,
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 60 : 30,
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: Fonts.urbanist.bold,
   },
 });
 

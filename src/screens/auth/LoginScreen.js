@@ -18,14 +18,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_ENDPOINTS, axiosConfig, setCurrentAdminId } from '../../config/apiConfig';
 import axios from 'axios';
 
-
-const baseUrl = API_ENDPOINTS.AUTH;
-
-const loginApi = axios.create({
-  baseURL: API_ENDPOINTS.AUTH.LOGIN,
-  ...axiosConfig
-});
-
 const LoginScreen = ({ navigation, route }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,77 +37,56 @@ const LoginScreen = ({ navigation, route }) => {
     if (!validateForm()) return;
 
     setIsLoading(true);
-    console.log('Giriş denemesi başladı:', {
+
+    const loginData = {
       email: email.trim(),
-      timestamp: new Date().toISOString(),
-      apiUrl: API_ENDPOINTS.AUTH.LOGIN
-    });
+      password: password
+    };
 
     try {
-      const loginDto = {
-        email: email.trim(),
-        password: password
-      };
+      console.log('Login isteği gönderiliyor:', {
+        endpoint: API_ENDPOINTS.AUTH.LOGIN,
+        data: { ...loginData, password: '********' }
+      });
 
-      console.log('Sunucuya istek gönderiliyor:', {
-        url: API_ENDPOINTS.AUTH.LOGIN,
+      const response = await axios({
         method: 'POST',
-        body: loginDto
+        url: API_ENDPOINTS.AUTH.LOGIN,
+        data: loginData,
+        ...axiosConfig
       });
 
-      const response = await axios.post(API_ENDPOINTS.AUTH.LOGIN, loginDto);
+      console.log('Sunucu yanıtı:', response.data);
 
-      console.log('Sunucu yanıtı alındı:', {
-        status: response.status,
-        data: response.data,
-        timestamp: new Date().toISOString()
-      });
+      const { message, userId, email, role, adminId } = response.data;
 
-      if (response.data.success) {
-        console.log('Giriş başarılı:', {
-          userId: response.data.userId,
-          email: response.data.email,
-          role: response.data.role
-        });
-
-        if (response.data.role === 'admin') {
-          setCurrentAdminId(response.data.userId);
+      if (message === "Login successful") {
+        if (role === 'admin') {
+          setCurrentAdminId(adminId);
         }
 
         await AsyncStorage.multiSet([
-          ['userId', response.data.userId.toString()],
-          ['userEmail', response.data.email],
-          ['userRole', response.data.role],
-          ...(response.data.role === 'admin' ? [['adminId', response.data.userId.toString()]] : [])
+          ['userId', userId.toString()],
+          ['userEmail', email],
+          ['userRole', role],
+          ...(role === 'admin' ? [['adminId', adminId.toString()]] : [])
         ]);
 
-        Alert.alert(
-          'Başarılı',
-          response.data.message || 'Giriş başarılı!',
-          [
-            {
-              text: 'Tamam',
-              onPress: () => {
-                if (response.data.role === 'admin') {
-                  navigation.reset({
-                    index: 0,
-                    routes: [{ name: 'AdminNavigator' }],
-                  });
-                } else {
-                  Alert.alert('Hata', 'Yetkisiz giriş denemesi');
-                }
-              },
-            },
-          ]
-        );
+        if (role === 'admin') {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'AdminNavigator' }],
+          });
+        } else {
+          Alert.alert('Hata', 'Yetkisiz giriş denemesi');
+        }
       } else {
         Alert.alert('Hata', 'Geçersiz e-posta veya şifre');
       }
     } catch (error) {
-      console.error('Giriş hatası:', {
+      console.error('Login hatası:', {
         message: error.message,
-        url: API_ENDPOINTS.AUTH.LOGIN,
-        timestamp: new Date().toISOString()
+        endpoint: API_ENDPOINTS.AUTH.LOGIN
       });
 
       if (error.message.includes('Network Error')) {
@@ -208,7 +179,7 @@ const LoginScreen = ({ navigation, route }) => {
                 style={styles.link}
                 onPress={() => {
                   if (role === 'admin') {
-                    navigation.navigate('AdminInfo');
+                    navigation.navigate('AdminCreate', { screen: 'AdminInfo' });
                   } else if (role === 'tenant') {
                     navigation.navigate('TenantNavigator');
                   }

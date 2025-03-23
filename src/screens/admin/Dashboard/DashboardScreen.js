@@ -897,35 +897,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginTop: 8, // Add a small top margin
-    fontFamily:"Poppins-Regular",
+    fontFamily: "Poppins-Regular",
+    marginVertical: 0,
+    marginBottom: -12,
   },
   statCard: {
-    width: '48%',
-    marginBottom: 16,
+    width: '49%',
+    marginBottom: 8,
     boxShadow: '0px 5px 10px 0px rgba(255, 246, 246, 0.3)',
     borderRadius: 16,
-  
   },
   gradientCard: {
     padding: 20,
     alignItems: 'center',
     borderRadius: 16,
-    
   },
   statValue: {
     fontSize: 28,
-    marginVertical: 8,
+   
   },
   statTitle: {
     fontSize: 14,
     opacity: 0.9,
   },
   financialContainer: {
-    marginBottom: 24,
+  
   },
   financialCard: {
-    marginBottom: 16,
+   
     borderRadius: 16,
     overflow: 'hidden',
   },
@@ -974,7 +973,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.1)',
-    marginBottom: 0, // Remove gap between tab header and content
+    marginBottom: 0,
   },
   tabButton: {
     flex: 1,
@@ -1050,30 +1049,29 @@ const styles = StyleSheet.create({
     opacity: 0.2,
   },
   flatList: {
-    height: "550", // Increased height to show 5 items
+    height: "550",
   },
   flatListContent: {
     flexGrow: 1,
   },
   tabContent: {
     padding: 16,
-    paddingTop: 8, // Reduced top padding to minimize gap
+    paddingTop: 8,
   },
   financialOverviewCard: {
-  
     borderRadius: 16,
     overflow: 'hidden',
     width: 425,
     alignSelf: 'center',
+   
   },
   financialOverviewContent: {
     padding: 8,
   },
   monthlyIncomeContainer: {
-    marginTop: 8,
+    marginTop: 0,
     borderRadius: 16,
     width: "100%",
-   
   },
   monthlyIncomeGradient: {
     borderRadius: 16,
@@ -1082,7 +1080,6 @@ const styles = StyleSheet.create({
   monthlyIncomeContent: {
     padding: 16,
     width: "100%",
-    
   },
   monthlyIncomeRow: {
     flexDirection: 'row',
@@ -1193,7 +1190,6 @@ const styles = StyleSheet.create({
     marginBottom: 104,
     borderRadius: 16,
     overflow: 'hidden',
-    
   },
   mostComplainedContent: {
     padding: 16,

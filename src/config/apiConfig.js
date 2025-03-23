@@ -1,5 +1,5 @@
 // Base URL'i tanımla
-export const API_BASE_URL = "https://d9ad-78-187-59-29.ngrok-free.app/api";
+export const API_BASE_URL = "https://e831-78-187-59-29.ngrok-free.app/api";
 
 // Admin ID yönetimi için global değişken ve yönetim fonksiyonları
 let currentAdminId = 4;
@@ -16,7 +16,7 @@ export const getCurrentAdminId = () => {
 export const API_ENDPOINTS = {
     // Auth endpoints
     AUTH: {
-        LOGIN: `${API_BASE_URL}/Auth/login`,
+        LOGIN: `${API_BASE_URL}/User/login`,
         REGISTER: `${API_BASE_URL}/Auth/register`,
         FORGOT_PASSWORD: `${API_BASE_URL}/Auth/forgot-password`,
         RESET_PASSWORD: `${API_BASE_URL}/Auth/reset-password`,

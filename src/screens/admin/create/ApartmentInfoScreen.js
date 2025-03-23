@@ -14,24 +14,28 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   Animated,
-  Image,
   ActivityIndicator,
+  StatusBar,
+  Dimensions,
 } from "react-native";
 import axios from "axios";
 import colors from "../../../styles/colors";
 import { TextInput as PaperInput, Button as PaperButton } from "react-native-paper";
 import { MaterialIcons } from '@expo/vector-icons';
-import LottieView from "lottie-react-native";
-import animate from "../../../assets/json/animApartment.json";
-import DateTimePicker from '@react-native-community/datetimepicker';
-import * as DocumentPicker from "expo-document-picker";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_ENDPOINTS, axiosConfig } from '../../../config/apiConfig';
-import * as ImagePicker from 'expo-image-picker';
+import { supabase } from '../../../config/supabaseClient';
+import { v4 as uuidv4 } from 'uuid';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Colors, Gradients } from '../../../constants/Colors';
+import Fonts from '../../../constants/Fonts';
+import LottieView from 'lottie-react-native';
+import animate from "../../../assets/json/animApartment.json";  
+
 
 // API URL'lerini güncelle
 const buildingApi = axios.create({
-  baseURL: API_ENDPOINTS.BUILDING,
+  baseURL: 'http://your-api-url/api', // API URL'nizi buraya ekleyin
   ...axiosConfig
 });
 
@@ -40,10 +44,12 @@ const apartmentApi = axios.create({
   ...axiosConfig
 });
 
-const imageApi = axios.create({
-  baseURL: API_ENDPOINTS.IMAGE,
-  ...axiosConfig
-});
+// Isıtma sistemi seçenekleri
+const heatingOptions = [
+  { label: 'Merkezi', value: 'central', icon: 'apartment' },
+  { label: 'Kombi', value: 'combi', icon: 'local-fire-department' },
+  { label: 'Yerden', value: 'floor', icon: 'waves' }
+];
 
 // API istekleri için hata yönetimi
 const logApiError = (error, context) => {
@@ -78,7 +84,85 @@ const logApiError = (error, context) => {
   console.log("=======================================================\n");
 };
 
-const ApartmentInfoScreen = () => {
+const ApartmentInfoScreen = ({ navigation }) => {
+  // State tanımlamaları
+  const [showForm, setShowForm] = useState(false);
+  const [showApartmentDetails, setShowApartmentDetails] = useState(false);
+  const [apartments, setApartments] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedApartment, setSelectedApartment] = useState(null);
+  const [currentStep, setCurrentStep] = useState('type');
+  const [selectedType, setSelectedType] = useState('');
+  const [selectedUnits, setSelectedUnits] = useState([]);
+  const [unassignedUnits, setUnassignedUnits] = useState([]);
+  const [apartmentUnits, setApartmentUnits] = useState([]);
+  const [completionStatus, setCompletionStatus] = useState({
+    type: false,
+    rent: false,
+    deposit: false,
+    notes: false
+  });
+  const [isSelectingType, setIsSelectingType] = useState(false);
+  const [bulkNotes, setBulkNotes] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [constructionDate, setConstructionDate] = useState(new Date());
+  const [features, setFeatures] = useState({
+    elevator: false,
+    parking: false,
+    security: false,
+    generator: false,
+    pool: false,
+    gym: false,
+  });
+  const [buildingFeatures, setBuildingFeatures] = useState({
+    heating: {
+      type: 'central', // Default value
+      details: ''
+    },
+    elevator: false,
+    parking: {
+      exists: false,
+      type: null
+    },
+    pool: {
+      exists: false,
+      type: null
+    },
+    gym: false,
+    garden: false,
+    thermalInsulation: false
+  });
+  const [featureAnimations] = useState({
+    elevator: new Animated.Value(0),
+    parking: new Animated.Value(0),
+    security: new Animated.Value(0),
+    generator: new Animated.Value(0),
+    pool: new Animated.Value(0),
+    gym: new Animated.Value(0),
+  });
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [duesAmount, setDuesAmount] = useState("");
+  const [districts, setDistricts] = useState([]);
+  const [neighborhoods, setNeighborhoods] = useState([]);
+  const [filteredNeighborhoods, setFilteredNeighborhoods] = useState([]);
+  const [showNeighborhoodDropdown, setShowNeighborhoodDropdown] = useState(false);
+  const [cities, setCities] = useState([]);
+  const [filteredCities, setFilteredCities] = useState([]);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const [filteredDistricts, setFilteredDistricts] = useState([]);
+  const [showDistrictDropdown, setShowDistrictDropdown] = useState(false);
+  const [currentFloorIndex, setCurrentFloorIndex] = useState(0);
+  const [showBasementSelector, setShowBasementSelector] = useState(false);
+  const [selectedBasementFloor, setSelectedBasementFloor] = useState(null);
+  const [availableFloors, setAvailableFloors] = useState([]);
+  const [hasBasement, setHasBasement] = useState(false);
+  const [bulkRentAmount, setBulkRentAmount] = useState('5000');
+  const [bulkDepositAmount, setBulkDepositAmount] = useState('10000');
+  const [showUnitSelector, setShowUnitSelector] = useState(false);
+  const [bulkFloor, setBulkFloor] = useState('');
+  const [selectedFloor, setSelectedFloor] = useState(null);
+  const [tempDate, setTempDate] = useState(null);
+  const [tempBasementFloor, setTempBasementFloor] = useState(null);
   const [apartmentName, setApartmentName] = useState("");
   const [numberOfFloors, setNumberOfFloors] = useState(0);
   const [totalApartments, setTotalApartments] = useState("");
@@ -94,52 +178,9 @@ const ApartmentInfoScreen = () => {
     gas: false,
     internet: false
   });
-  const [apartments, setApartments] = useState([]);
-  const [selectedApartment, setSelectedApartment] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-  const [showApartmentDetails, setShowApartmentDetails] = useState(false);
-  const [apartmentUnits, setApartmentUnits] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [duesAmount, setDuesAmount] = useState("");
-  const [districts, setDistricts] = useState([]);
-  const [neighborhoods, setNeighborhoods] = useState([]);
-  const [filteredNeighborhoods, setFilteredNeighborhoods] = useState([]);
-  const [showNeighborhoodDropdown, setShowNeighborhoodDropdown] = useState(false);
-  const [cities, setCities] = useState([]);
-  const [filteredCities, setFilteredCities] = useState([]);
-  const [showCityDropdown, setShowCityDropdown] = useState(false);
-  const [filteredDistricts, setFilteredDistricts] = useState([]);
-  const [showDistrictDropdown, setShowDistrictDropdown] = useState(false);
+  const [showBuildingFeatures, setShowBuildingFeatures] = useState(false);
 
-  const [selectedType, setSelectedType] = useState('');
-  const [selectedUnits, setSelectedUnits] = useState([]);
-  const [bulkRentAmount, setBulkRentAmount] = useState('5000');
-  const [bulkDepositAmount, setBulkDepositAmount] = useState('10000');
-  const [showUnitSelector, setShowUnitSelector] = useState(false);
-
-  const [currentStep, setCurrentStep] = useState('type');
-  const [completionStatus, setCompletionStatus] = useState({
-    type: false,
-    floor: false,
-    balcony: false,
-    rent: false,
-    deposit: false,
-    notes: false
-  });
-  const [unassignedUnits, setUnassignedUnits] = useState([]);
-
-  const [bulkNotes, setBulkNotes] = useState('');
-  const [bulkFloor, setBulkFloor] = useState('');
-
-  const [selectedFloor, setSelectedFloor] = useState(null);
-  const [isSelectingType, setIsSelectingType] = useState(false);
-
-  const [availableFloors, setAvailableFloors] = useState([]);
-  const [hasBasement, setHasBasement] = useState(false);
-  const [currentFloorIndex, setCurrentFloorIndex] = useState(0);
-
-  const [showBasementSelector, setShowBasementSelector] = useState(false);
-  const [selectedBasementFloor, setSelectedBasementFloor] = useState(null);
+  const scrollViewRef = useRef(null);
 
   const APARTMENT_TYPES = ["1+0", "1+1", "2+1", "3+1", "4+1", "5+1"];
 
@@ -152,39 +193,12 @@ const ApartmentInfoScreen = () => {
     { id: 'notes', title: 'Ek Notlar', icon: 'note' }
   ];
 
-  const scrollViewRef = useRef(null);
-
-  // Varsayılan değerlerle güncelle
-  const [buildingFeatures, setBuildingFeatures] = useState({
-    parking: { exists: false, type: null },
-    elevator: false,
-    park: true, // Oyun alanı varsayılan olarak true
-    heatingSystem: 'central',
-    pool: { exists: false, type: null },
-    gym: false,
-    buildingAge: '',
-    garden: false,
-    thermalInsulation: false
-  });
-
-  // Isıtma sistemi seçenekleri
-  const heatingOptions = [
-    { label: 'Merkezi', value: 'central' },
-    { label: 'Kombi', value: 'combi' },
-    { label: 'Yerden', value: 'floor' },
-  ];
-
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [constructionDate, setConstructionDate] = useState(null);
-
   const calculateBuildingAge = (constructionDate) => {
     if (!constructionDate) return '';
     const today = new Date();
     const age = today.getFullYear() - constructionDate.getFullYear();
     return age.toString();
   };
-
-  const [tempDate, setTempDate] = useState(null);
 
   const handleDateChange = (event, selectedDate) => {
     if (Platform.OS === 'android') {
@@ -373,7 +387,6 @@ const ApartmentInfoScreen = () => {
     if (!buildingNumber.trim()) missingFields.push("- Bina Numarası");
     if (!postalCode.trim()) missingFields.push("- Posta Kodu");
     if (!duesAmount.trim()) missingFields.push("- Aidat Miktarı");
-    if (selectedImages.length === 0) missingFields.push("- En az bir görsel");
 
     if (missingFields.length > 0) {
       console.log("\n=================== FORM DOĞRULAMA ===================");
@@ -444,10 +457,6 @@ const ApartmentInfoScreen = () => {
           thermalInsulation: apartmentData.hasThermalInsulation || false
         });
 
-        if (apartmentData.imageId) {
-          setUploadedImageUrls([{ id: apartmentData.imageId }]);
-        }
-
         console.log('Apartman bilgileri yüklendi:', apartmentData);
       }
     } catch (error) {
@@ -465,40 +474,17 @@ const ApartmentInfoScreen = () => {
     }
   };
 
-  // Görsel işleme fonksiyonu
-  const processImage = async (image) => {
-    try {
-      // Dosyayı base64'e çevir
-      const response = await fetch(image.uri);
-      const blob = await response.blob();
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const base64data = reader.result.split(',')[1];
-          resolve(base64data);
-        };
-        reader.onerror = () => reject(new Error('Base64 dönüşümü başarısız'));
-        reader.readAsDataURL(blob);
-      });
-    } catch (error) {
-      console.error("Görsel işleme hatası:", error);
-      throw error;
-    }
-  };
-
   // handleSubmit fonksiyonunu güncelle
   const handleSubmit = async () => {
     if (!validateForm()) {
-        return;
+      return;
     }
 
     setIsLoading(true);
     console.log("\n=================== İŞLEM BAŞLADI ===================");
 
     try {
-        // Prepare the building data as a JSON object with default values
-        const buildingData = {
-             id: 0,
+      const buildingData = {
         buildingName: apartmentName.trim(),
         numberOfFloors: parseInt(numberOfFloors),
         totalApartments: parseInt(totalApartments),
@@ -514,57 +500,51 @@ const ApartmentInfoScreen = () => {
         includedWater: includedUtilities.water,
         includedGas: includedUtilities.gas,
         includedInternet: includedUtilities.internet,
-        parkingType: buildingFeatures.parking.exists ? buildingFeatures.parking.type : "Yok",
-        hasElevator: buildingFeatures.elevator,
-        hasPlayground: buildingFeatures.park,
-        heatingType: buildingFeatures.heatingSystem,
-        poolType: buildingFeatures.pool.exists ? buildingFeatures.pool.type : "Yok",
-        hasGym: buildingFeatures.gym,
-        buildingAge: parseInt(buildingFeatures.buildingAge) || 0,
-        hasGarden: buildingFeatures.garden,
-        hasThermalInsulation: buildingFeatures.thermalInsulation,
         adminId: 1,
         createdAt: new Date().toISOString(),
         isActive: true,
-        lastMaintenanceDate: new Date().toISOString(),
-            imageId: null, // Default value indicating no image uploaded
-            imageUrl: null, // Default value indicating no image uploaded
-            isActive: true, // Default value
-        
-        };
+        lastMaintenanceDate: new Date().toISOString()
+      };
 
-        // Image handling section (commented out)
-        /*
-        if (selectedImages.length > 0) {
-            const imageFile = {
-                uri: selectedImages[0].uri,
-                type: 'image/jpeg', // Adjust based on your image type
-                name: `building_${Date.now()}.jpg`
-            };
-            buildingData.imageId = imageFile.name; // Set imageId to the name of the image
-            buildingData.imageUrl = imageFile.uri; // Set imageUrl to the URI of the image
-        }
-        */
-
-        // Send the request as JSON
-        const response = await axios.post('https://your-api-endpoint', buildingData, {
-            headers: {
-                'Content-Type': 'application/json', // Set to application/json
-            }
-        });
-
-        console.log("✅ Building kaydı başarılı:", response.data);
-        // Handle success response
+      // Bina özellikleri formunu göster
+      console.log("Temel bilgiler kaydedildi, bina özellikleri formuna geçiliyor...");
+      setShowBuildingFeatures(true);
+      setShowForm(false);
 
     } catch (error) {
-        console.log("\n=================== HATA OLUŞTU ===================");
-        console.error("❌ Hata detayı:", error);
-        logApiError(error, "KAYIT");
+      console.log("\n=================== HATA OLUŞTU ===================");
+      console.error("❌ Hata detayı:", error);
+      logApiError(error, "KAYIT");
+      
+      Alert.alert("Hata", "Bina bilgileri kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.");
     } finally {
-        setIsLoading(false);
-        console.log("=================== İŞLEM TAMAMLANDI ===================\n");
+      setIsLoading(false);
+      console.log("=================== İŞLEM TAMAMLANDI ===================\n");
     }
-};
+  };
+
+  // Bina özelliklerinden daire bilgilerine geçiş için yeni fonksiyon
+  const handleFeaturesSave = () => {
+    // Bina özelliklerini kaydet ve daire bilgilerine geç
+    const buildingData = {
+      buildingName: apartmentName,
+      numberOfFloors: parseInt(numberOfFloors),
+      totalApartments: parseInt(totalApartments),
+      parkingType: buildingFeatures.parking.exists ? buildingFeatures.parking.type : "Yok",
+      hasElevator: buildingFeatures.elevator,
+      hasPlayground: buildingFeatures.park,
+      heatingType: buildingFeatures.heatingSystem,
+      poolType: buildingFeatures.pool.exists ? buildingFeatures.pool.type : "Yok",
+      hasGym: buildingFeatures.gym,
+      buildingAge: parseInt(buildingFeatures.buildingAge) || 0,
+      hasGarden: buildingFeatures.garden,
+      hasThermalInsulation: buildingFeatures.thermalInsulation,
+    };
+
+    handleAddApartmentDetails(buildingData);
+    setShowBuildingFeatures(false);
+    setShowApartmentDetails(true);
+  };
 
   // Form verilerini sıfırlama fonksiyonu
   const resetForm = () => {
@@ -585,20 +565,26 @@ const ApartmentInfoScreen = () => {
       internet: false
     });
     setBuildingFeatures({
-      parking: { exists: false, type: null },
+      heating: {
+        type: 'central',
+        details: ''
+      },
       elevator: false,
-      park: true, // Oyun alanı varsayılan olarak true kalacak
-      heatingSystem: 'central',
-      pool: { exists: false, type: null },
+      parking: {
+        exists: false,
+        type: null
+      },
+      pool: {
+        exists: false,
+        type: null
+      },
       gym: false,
-      buildingAge: '',
       garden: false,
       thermalInsulation: false
     });
-    setSelectedImages([]);
     setApartmentUnits([]);
-    setBulkRentAmount('5000'); // Varsayılan kira miktarı
-    setBulkDepositAmount('10000'); // Varsayılan depozito miktarı
+    setBulkRentAmount('5000');
+    setBulkDepositAmount('10000');
   };
 
   const handleAddApartmentDetails = (apartment) => {
@@ -773,286 +759,220 @@ const ApartmentInfoScreen = () => {
 
   const renderApartmentForm = () => (
     <View style={styles.formContainer}>
-      <View style={styles.inputContainer}>
-        <MaterialIcons
-          name="apartment"
-          size={24}
-          color={colors.primary}
-          style={styles.icon}
-        />
-        <PaperInput
-          mode="outlined"
-          label="Apartman Adı"
-          placeholder="örn: Melek Apartmanı"
-          value={apartmentName}
-          onChangeText={setApartmentName}
-          style={styles.input}
-          outlineColor={colors.darkGray}
-          activeOutlineColor={colors.primary}
-        />
-      </View>
+      <LinearGradient
+        colors={Gradients.indigo}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.formHeaderGradient}
+      >
+        <View style={styles.formHeaderContent}>
+          <Text style={styles.formHeaderTitle}>Bina Bilgileri</Text>
+          <Text style={styles.formHeaderSubtitle}>Lütfen bina bilgilerini giriniz</Text>
+        </View>
+      </LinearGradient>
 
-      <View style={styles.inputContainer}>
-        <MaterialIcons
-          name="layers"
-          size={24}
-          color={colors.primary}
-          style={styles.icon}
-        />
-        <PaperInput
-          mode="outlined"
-          label="Kat Sayısı"
-          value={numberOfFloors}
-          onChangeText={setNumberOfFloors}
-          keyboardType="numeric"
-          style={styles.input}
-          outlineColor={colors.darkGray}
-          activeOutlineColor={colors.primary}
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <MaterialIcons
-          name="door-front"
-          size={24}
-          color={colors.primary}
-          style={styles.icon}
-        />
-        <PaperInput
-          mode="outlined"
-          label="Toplam Daire Sayısı"
-          value={totalApartments}
-          onChangeText={setTotalApartments}
-          keyboardType="numeric"
-          style={styles.input}
-          outlineColor={colors.darkGray}
-          activeOutlineColor={colors.primary}
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <MaterialIcons
-          name="location-city"
-          size={24}
-          color={colors.primary}
-          style={styles.icon}
-        />
-        <View style={styles.dropdownWrapper}>
-          <PaperInput
-            mode="outlined"
-            label="Şehir"
-            value={city}
-            onChangeText={handleCityFilter}
-            style={styles.input}
-            outlineColor={colors.darkGray}
-            activeOutlineColor={colors.primary}
-          />
-          {showCityDropdown && filteredCities.length > 0 && (
-            <View style={styles.dropdown}>
-              <ScrollView nestedScrollEnabled={true} style={styles.dropdownScroll}>
-                {filteredCities.map((item, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={styles.dropdownItem}
-                    onPress={() => handleCityChange(item)}
-                  >
-                    <Text style={styles.dropdownText}>{item}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+      <View style={styles.formContent}>
+        <View style={styles.formSection}>
+          <Text style={styles.sectionTitle}>Temel Bilgiler</Text>
+          <View style={styles.inputContainer}>
+            <View style={styles.iconWrapper}>
+              <MaterialIcons name="apartment" size={20} color={Colors.primary} />
             </View>
-          )}
-        </View>
-      </View>
+            <PaperInput
+              label="Apartman Adı"
+              value={apartmentName}
+              onChangeText={setApartmentName}
+              style={styles.input}
+              mode="outlined"
+              outlineColor="#E2E8F0"
+              activeOutlineColor={Colors.primary}
+              theme={{ colors: { background: '#F8FAFC' }}}
+            />
+          </View>
 
-      <View style={styles.inputContainer}>
-        <MaterialIcons
-          name="location-on"
-          size={24}
-          color={colors.primary}
-          style={styles.icon}
-        />
-        <View style={styles.dropdownWrapper}>
-          <PaperInput
-            mode="outlined"
-            label="İlçe"
-            value={district}
-            onChangeText={handleDistrictFilter}
-            style={styles.input}
-            outlineColor={colors.darkGray}
-            activeOutlineColor={colors.primary}
-            disabled={!city}
-          />
-          {showDistrictDropdown && filteredDistricts.length > 0 && (
-            <View style={styles.dropdown}>
-              <ScrollView nestedScrollEnabled={true} style={styles.dropdownScroll}>
-                {filteredDistricts.map((item, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={styles.dropdownItem}
-                    onPress={() => handleDistrictChange(item)}
-                  >
-                    <Text style={styles.dropdownText}>{item.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+          <View style={styles.inputContainer}>
+            <View style={styles.iconWrapper}>
+              <MaterialIcons name="layers" size={20} color={Colors.primary} />
             </View>
-          )}
-        </View>
-      </View>
+            <PaperInput
+              label="Kat Sayısı"
+              value={numberOfFloors}
+              onChangeText={setNumberOfFloors}
+              keyboardType="numeric"
+              style={styles.input}
+              mode="outlined"
+              outlineColor="#E2E8F0"
+              activeOutlineColor={Colors.primary}
+              theme={{ colors: { background: '#F8FAFC' }}}
+            />
+          </View>
 
-      <View style={styles.inputContainer}>
-        <MaterialIcons
-          name="home"
-          size={24}
-          color={colors.primary}
-          style={styles.icon}
-        />
-        <View style={styles.dropdownWrapper}>
-          <PaperInput
-            mode="outlined"
-            label="Mahalle"
-            value={neighborhood}
-            onChangeText={handleNeighborhoodFilter}
-            style={styles.input}
-            outlineColor={colors.darkGray}
-            activeOutlineColor={colors.primary}
-            disabled={!district}
-          />
-          {showNeighborhoodDropdown && filteredNeighborhoods.length > 0 && (
-            <View style={styles.dropdown}>
-              <ScrollView nestedScrollEnabled={true} style={styles.dropdownScroll}>
-                {filteredNeighborhoods.map((item, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={styles.dropdownItem}
-                    onPress={() => handleNeighborhoodChange(item)}
-                  >
-                    <Text style={styles.dropdownText}>{item}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+          <View style={styles.inputContainer}>
+            <View style={styles.iconWrapper}>
+              <MaterialIcons name="home" size={20} color={Colors.primary} />
             </View>
-          )}
+            <PaperInput
+              label="Toplam Daire Sayısı"
+              value={totalApartments}
+              onChangeText={setTotalApartments}
+              keyboardType="numeric"
+              style={styles.input}
+              mode="outlined"
+              outlineColor="#E2E8F0"
+              activeOutlineColor={Colors.primary}
+              theme={{ colors: { background: '#F8FAFC' }}}
+            />
+          </View>
+        </View>
+
+        <View style={styles.formSection}>
+          <Text style={styles.sectionTitle}>Adres Bilgileri</Text>
+          <View style={styles.inputContainer}>
+            <View style={styles.iconWrapper}>
+              <MaterialIcons name="location-city" size={20} color={Colors.primary} />
+            </View>
+            <PaperInput
+              label="Şehir"
+              value={city}
+              onChangeText={setCity}
+              style={styles.input}
+              mode="outlined"
+              outlineColor="#E2E8F0"
+              activeOutlineColor={Colors.primary}
+              theme={{ colors: { background: '#F8FAFC' }}}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <View style={styles.iconWrapper}>
+              <MaterialIcons name="location-on" size={20} color={Colors.primary} />
+            </View>
+            <PaperInput
+              label="İlçe"
+              value={district}
+              onChangeText={setDistrict}
+              style={styles.input}
+              mode="outlined"
+              outlineColor="#E2E8F0"
+              activeOutlineColor={Colors.primary}
+              theme={{ colors: { background: '#F8FAFC' }}}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <View style={styles.iconWrapper}>
+              <MaterialIcons name="place" size={20} color={Colors.primary} />
+            </View>
+            <PaperInput
+              label="Mahalle"
+              value={neighborhood}
+              onChangeText={setNeighborhood}
+              style={styles.input}
+              mode="outlined"
+              outlineColor="#E2E8F0"
+              activeOutlineColor={Colors.primary}
+              theme={{ colors: { background: '#F8FAFC' }}}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <View style={styles.iconWrapper}>
+              <MaterialIcons name="add-road" size={20} color={Colors.primary} />
+            </View>
+            <PaperInput
+              label="Sokak"
+              value={street}
+              onChangeText={setStreet}
+              style={styles.input}
+              mode="outlined"
+              outlineColor="#E2E8F0"
+              activeOutlineColor={Colors.primary}
+              theme={{ colors: { background: '#F8FAFC' }}}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <View style={styles.iconWrapper}>
+              <MaterialIcons name="home" size={20} color={Colors.primary} />
+            </View>
+            <PaperInput
+              label="Bina No"
+              value={buildingNumber}
+              onChangeText={setBuildingNumber}
+              style={styles.input}
+              mode="outlined"
+              outlineColor="#E2E8F0"
+              activeOutlineColor={Colors.primary}
+              theme={{ colors: { background: '#F8FAFC' }}}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <View style={styles.iconWrapper}>
+              <MaterialIcons name="local-post-office" size={20} color={Colors.primary} />
+            </View>
+            <PaperInput
+              label="Posta Kodu"
+              value={postalCode}
+              onChangeText={setPostalCode}
+              keyboardType="numeric"
+              style={styles.input}
+              mode="outlined"
+              outlineColor="#E2E8F0"
+              activeOutlineColor={Colors.primary}
+              theme={{ colors: { background: '#F8FAFC' }}}
+            />
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={styles.submitButton}
+          onPress={handleSubmit}
+        >
+          <Text style={styles.submitButtonText}>Kaydet ve Devam Et</Text>
+          <MaterialIcons name="arrow-forward" size={24} color="#FFFFFF" style={{ marginLeft: 8 }} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const handleHeatingOptionSelect = (value) => {
+    setBuildingFeatures(prev => ({
+      ...prev,
+      heating: {
+        ...prev.heating,
+        type: value
+      }
+    }));
+  };
+
+  const renderHeatingOptions = () => (
+    <View style={styles.featureSection}>
+      <View style={styles.featureRow}>
+        <Text style={styles.featureLabel}>Isıtma Sistemi</Text>
+        <View style={styles.heatingOptionsContainer}>
+          {['central', 'combi', 'floor'].map((option) => {
+            const heatingOption = heatingOptions.find(opt => opt.value === option);
+            return (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.heatingOptionButton,
+                  buildingFeatures.heatingSystem === option && styles.heatingOptionButtonSelected
+                ]}
+                onPress={() => handleFeatureChange('heatingSystem', option)}
+              >
+                <Text style={[
+                  styles.heatingOptionText,
+                  buildingFeatures.heatingSystem === option && styles.heatingOptionTextSelected
+                ]}>
+                  {heatingOption.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
-
-      <View style={styles.inputContainer}>
-        <MaterialIcons
-          name="add-road"
-          size={24}
-          color={colors.primary}
-          style={styles.icon}
-        />
-        <PaperInput
-          mode="outlined"
-          label="Sokak"
-          value={street}
-          onChangeText={setStreet}
-          style={styles.input}
-          outlineColor={colors.darkGray}
-          activeOutlineColor={colors.primary}
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <MaterialIcons
-          name="home-work"
-          size={24}
-          color={colors.primary}
-          style={styles.icon}
-        />
-        <PaperInput
-          mode="outlined"
-          label="Bina No"
-          value={buildingNumber}
-          onChangeText={setBuildingNumber}
-          keyboardType="numeric"
-          style={styles.input}
-          outlineColor={colors.darkGray}
-          activeOutlineColor={colors.primary}
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <MaterialIcons
-          name="local-post-office"
-          size={24}
-          color={colors.primary}
-          style={styles.icon}
-        />
-        <PaperInput
-          mode="outlined"
-          label="Posta Kodu"
-          value={postalCode}
-          onChangeText={setPostalCode}
-          keyboardType="numeric"
-          style={styles.input}
-          outlineColor={colors.darkGray}
-          activeOutlineColor={colors.primary}
-         
-        />
-      </View>
-
-      <View style={styles.inputContainer}>
-        <MaterialIcons
-          name="account-balance-wallet"
-          size={24}
-          color={colors.primary}
-          style={styles.icon}
-        />
-        <PaperInput
-          mode="outlined"
-          label="Aidat Miktarı (₺)"
-          value={duesAmount}
-          onChangeText={setDuesAmount}
-          keyboardType="numeric"
-          style={styles.input}
-          outlineColor={colors.darkGray}
-          activeOutlineColor={colors.primary}
-          right={<PaperInput.Affix text="₺" />}
-        />
-      </View>
-
-      <View style={styles.utilitiesContainer}>
-        <Text style={styles.sectionTitle}>Dahili Hizmetler</Text>
-        <View style={styles.checkboxGroup}>
-          {Object.entries(includedUtilities).map(([key, value]) => (
-            <TouchableOpacity
-              key={key}
-              style={[
-                styles.checkbox,
-                value && styles.checkboxChecked
-              ]}
-              onPress={() => setIncludedUtilities({ ...includedUtilities, [key]: !value })}
-            >
-              <Text style={[
-                styles.checkboxLabel,
-                value && styles.checkboxLabelChecked
-              ]}>
-                {key === 'electric' ? 'Elektrik' :
-                 key === 'water' ? 'Su' :
-                 key === 'gas' ? 'Doğalgaz' : 'İnternet'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {renderBuildingFeatures()}
-
-      {renderImageUpload()}
-
-      <TouchableOpacity 
-        style={[styles.submitButton, isLoading && styles.disabledButton]}
-        onPress={handleSubmit}
-        disabled={isLoading}>
-        {isLoading ? (
-          <ActivityIndicator color={colors.white} />
-        ) : (
-          <Text style={styles.submitButtonLabel}>Kaydet</Text>
-        )}
-      </TouchableOpacity>
     </View>
   );
 
@@ -1071,7 +991,7 @@ const ApartmentInfoScreen = () => {
               transform: [{
                 translateX: parkingAnimation.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [50, 0] // Sağdan sola doğru kayma
+                  outputRange: [50, 0]
                 })
               }]
             }
@@ -1128,7 +1048,7 @@ const ApartmentInfoScreen = () => {
               transform: [{
                 translateX: poolAnimation.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [50, 0] // Sağdan sola doğru kayma
+                  outputRange: [50, 0]
                 })
               }]
             }
@@ -1178,85 +1098,28 @@ const ApartmentInfoScreen = () => {
       <View style={styles.featureRow}>
         <Text style={styles.featureLabel}>Isıtma Sistemi</Text>
         <View style={styles.radioGroup}>
-          {heatingOptions.map((option) => (
-            <TouchableOpacity
-              key={option.value}
-              style={[
-                styles.radioButton,
-                buildingFeatures.heatingSystem === option.value && styles.radioButtonSelected
-              ]}
-              onPress={() => handleFeatureChange('heatingSystem', option.value)}
-            >
-              <Text style={[
-                styles.radioText,
-                buildingFeatures.heatingSystem === option.value && styles.radioTextSelected
-              ]}>
-                {option.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {['central', 'combi', 'floor'].map((option) => {
+            const heatingOption = heatingOptions.find(opt => opt.value === option);
+            return (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.radioButton,
+                  buildingFeatures.heatingSystem === option && styles.radioButtonSelected
+                ]}
+                onPress={() => handleFeatureChange('heatingSystem', option)}
+              >
+                <Text style={[
+                  styles.radioText,
+                  buildingFeatures.heatingSystem === option && styles.radioTextSelected
+                ]}>
+                  {heatingOption.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
-
-      {/* Bina Yaşı yerine Yapım Tarihi */}
-      <View style={styles.featureRow}>
-        <Text style={styles.featureLabel}>Yapım Tarihi</Text>
-        <View style={styles.datePickerContainer}>
-          <TouchableOpacity 
-            style={styles.datePickerButton}
-            onPress={() => setShowDatePicker(true)}
-          >
-            <Text style={styles.datePickerButtonText}>
-              {constructionDate 
-                ? constructionDate.toLocaleDateString('tr-TR', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })
-                : 'Tarih Seç'}
-            </Text>
-          </TouchableOpacity>
-          {buildingFeatures.buildingAge && (
-            <Text style={styles.buildingAgeText}>
-              {buildingFeatures.buildingAge} yaşında
-            </Text>
-          )}
-        </View>
-      </View>
-
-      {showDatePicker && (
-        <View>
-          {Platform.OS === 'android' ? (
-            <DateTimePicker
-              testID="dateTimePicker"
-              value={constructionDate || new Date()}
-              mode="date"
-              display="default"
-              onChange={handleDateChange}
-              maximumDate={new Date()}
-            />
-          ) : (
-            <View style={styles.iosDatePickerContainer}>
-              <View style={styles.iosDatePickerHeader}>
-                <TouchableOpacity onPress={handleCancelDate}>
-                  <Text style={styles.iosDatePickerButtonText}>İptal</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleConfirmDate}>
-                  <Text style={[styles.iosDatePickerButtonText, styles.confirmText]}>Tamam</Text>
-                </TouchableOpacity>
-              </View>
-              <DateTimePicker
-                value={tempDate || constructionDate || new Date()}
-                mode="date"
-                display="spinner"
-                onChange={handleDateChange}
-                maximumDate={new Date()}
-                locale="tr-TR"
-              />
-            </View>
-          )}
-        </View>
-      )}
 
       {/* Diğer özellikler için Switch'ler */}
       <View style={styles.switchGroup}>
@@ -1305,52 +1168,16 @@ const ApartmentInfoScreen = () => {
           />
         </View>
       </View>
-    </View>
-  );
 
-  const renderImageUpload = () => (
-    <View style={styles.imageUploadContainer}>
-      <Text style={styles.sectionTitle}>Apartman Görselleri</Text>
-      
-      <FlatList
-        horizontal
-        data={[{ id: 'add' }, ...selectedImages]}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => {
-          if (item.id === 'add') {
-            return (
-              <TouchableOpacity 
-                style={styles.addImageCard}
-                onPress={pickImage}
-              >
-                <MaterialIcons 
-                  name="add-photo-alternate" 
-                  size={32} 
-                  color={colors.primary} 
-                />
-                <Text style={styles.addImageText}>Görsel Ekle</Text>
-              </TouchableOpacity>
-            );
-          }
-          
-          return (
-            <View style={styles.imageItemContainer}>
-              <Image
-                source={{ uri: item.uri }}
-                style={styles.imagePreview}
-              />
-              <TouchableOpacity 
-                style={styles.removeImageButton}
-                onPress={() => removeImage(item.id)}
-              >
-                <MaterialIcons name="delete" size={20} color={colors.white} />
-              </TouchableOpacity>
-            </View>
-          );
-        }}
-        contentContainerStyle={styles.imageListContainer}
-        showsHorizontalScrollIndicator={false}
-      />
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={styles.saveFeatureButton}
+          onPress={handleFeaturesSave}
+        >
+          <Text style={styles.saveFeatureButtonText}>Kaydet ve Devam Et</Text>
+          <MaterialIcons name="arrow-forward" size={24} color="#FFFFFF" style={{ marginLeft: 8 }} />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -1442,16 +1269,42 @@ const ApartmentInfoScreen = () => {
       {currentStep === 'floor' && (
         <View style={styles.floorContainer}>
           <View style={styles.inputHeader}>
-            
             <Text style={styles.remainingText}>
               {unassignedUnits.length} daire için kat bilgisi girilmesi gerekiyor
             </Text>
           </View>
 
-          <FloorSelector 
-            currentFloor={selectedFloor}
-            onFloorChange={handleFloorChange}
-          />
+          <View style={styles.floorSelectorContainer}>
+            <TouchableOpacity
+              style={styles.floorArrowButton}
+              onPress={() => handleFloorChange(selectedFloor - 1)}
+              disabled={selectedFloor <= 0}
+            >
+              <MaterialIcons 
+                name="keyboard-arrow-left" 
+                size={24} 
+                color={selectedFloor <= 0 ? colors.lightGray : colors.primary} 
+              />
+            </TouchableOpacity>
+
+            <View style={styles.currentFloorContainer}>
+              <Text style={styles.currentFloorText}>
+                {selectedFloor === 0 ? 'Zemin Kat' : `${selectedFloor}. Kat`}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.floorArrowButton}
+              onPress={() => handleFloorChange(selectedFloor + 1)}
+              disabled={selectedFloor >= selectedApartment.numberOfFloors - 1}
+            >
+              <MaterialIcons 
+                name="keyboard-arrow-right" 
+                size={24} 
+                color={selectedFloor >= selectedApartment.numberOfFloors - 1 ? colors.lightGray : colors.primary} 
+              />
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.floorsGrid}>
             <View style={styles.floorUnits}>
@@ -1492,11 +1345,6 @@ const ApartmentInfoScreen = () => {
               {selectedUnits.length} Daireyi {selectedFloor === 0 ? 'Zemin Kata' : `${selectedFloor}. Kata`} Yerleştir
             </PaperButton>
           )}
-
-          <ResetButton 
-            onReset={handleResetFloors}
-            section="Kat Bilgileri"
-          />
         </View>
       )}
 
@@ -1759,10 +1607,119 @@ const ApartmentInfoScreen = () => {
   );
 
   const renderNoApartmentMessage = () => (
-    <View style={styles.emptyContainer}>
-      <Text style={styles.noApartmentText}>
-        Henüz bir apartman eklemediniz
-      </Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={Gradients.indigo[0]} />
+      <LinearGradient
+        colors={Gradients.indigo}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerGradient}
+      >
+        <View style={styles.headerContent}>
+          <View style={styles.animationContainer}>
+            <LottieView 
+              source={animate} 
+              autoPlay 
+              loop 
+              style={styles.animation}
+            />
+          </View>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>Bina Bilgileri</Text>
+            <Text style={styles.headerSubtitle}>
+              {apartments.length > 0 
+                ? `${apartments.length} bina kayıtlı`
+                : 'Henüz bina eklemediniz'}
+            </Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      {apartments.length > 0 ? (
+        <View style={styles.listContainer}>
+          {apartments.map((apartment, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.apartmentCard}
+              onPress={() => {
+                setSelectedApartment(apartment);
+                setShowApartmentDetails(true);
+              }}
+            >
+              <View style={styles.cardHeader}>
+                <View style={styles.cardHeaderLeft}>
+                  <Text style={styles.buildingName}>{apartment.buildingName}</Text>
+                  <Text style={styles.address}>
+                    {apartment.street} No:{apartment.buildingNumber}, {apartment.neighborhood}
+                  </Text>
+                  <Text style={styles.address}>
+                    {apartment.district}/{apartment.city}
+                  </Text>
+                </View>
+                <View style={styles.cardHeaderRight}>
+                  <TouchableOpacity 
+                    style={styles.editButton}
+                    onPress={() => handleEditApartment(apartment)}
+                  >
+                    <MaterialIcons name="edit" size={24} color={colors.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.deleteButton}
+                    onPress={() => handleDeleteApartment(index)}
+                  >
+                    <MaterialIcons name="delete" size={24} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <View style={styles.cardContent}>
+                <View style={styles.infoRow}>
+                  <MaterialIcons name="apartment" size={20} color={colors.darkGray} />
+                  <Text style={styles.infoText}>{`${apartment.numberOfFloors} Kat`}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <MaterialIcons name="home" size={20} color={colors.darkGray} />
+                  <Text style={styles.infoText}>{`${apartment.totalApartments} Daire`}</Text>
+                </View>
+                {apartment.duesAmount && (
+                  <View style={styles.infoRow}>
+                    <MaterialIcons name="account-balance-wallet" size={20} color={colors.darkGray} />
+                    <Text style={styles.infoText}>{`Aidat: ${apartment.duesAmount}₺`}</Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.cardFooter}>
+                <TouchableOpacity 
+                  style={styles.detailsButton}
+                  onPress={() => {
+                    setSelectedApartment(apartment);
+                    setShowApartmentDetails(true);
+                  }}
+                >
+                  <Text style={styles.detailsButtonText}>Detayları Görüntüle</Text>
+                  <MaterialIcons name="chevron-right" size={24} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ) : (
+        <View style={styles.emptyContent}>
+          <Text style={styles.emptyText}>
+            Yeni bina eklemek için sağ alttaki butona tıklayın
+          </Text>
+        </View>
+      )}
+
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => {
+          console.log('Add button pressed');
+          resetForm(); // Formu sıfırla
+          setShowForm(true); // Formu göster
+        }}
+      >
+        <MaterialIcons name="add" size={32} color="#FFFFFF" />
+      </TouchableOpacity>
     </View>
   );
 
@@ -1961,46 +1918,27 @@ const ApartmentInfoScreen = () => {
   };
 
   const handleComplete = () => {
-    // Apartman ve daire bilgilerini birleştir
-    const completedApartment = {
-      ...selectedApartment,
-      units: apartmentUnits.map(unit => ({
-        ...unit,
-        floor: unit.floor || 0,
-        notes: unit.notes || ''
-      })),
-      completedAt: new Date().toISOString() // Tamamlanma tarihini ekle
-    };
-
-    // Mevcut apartmanlar listesini güncelle
-    setApartments(prevApartments => {
-      const existingIndex = prevApartments.findIndex(apt => apt.apartmentName === completedApartment.apartmentName);
-      if (existingIndex >= 0) {
-        // Varolan apartmanı güncelle
-        const updatedApartments = [...prevApartments];
-        updatedApartments[existingIndex] = completedApartment;
-        return updatedApartments;
-      } else {
-        // Yeni apartman ekle
-        return [...prevApartments, completedApartment];
-      }
-    });
-
-    // Detay ekranını kapat
-    setShowApartmentDetails(false);
-    
-    // Başarı mesajı göster
     Alert.alert(
-      "Başarılı",
-      "Apartman bilgileri başarıyla kaydedildi.",
-      [{ text: "Tamam" }]
+      'Başarılı',
+      'Bina bilgileri başarıyla kaydedildi. Finansal bilgileri girmek için bir sonraki adıma geçebilirsiniz.',
+      [
+        {
+          text: 'Tamam',
+          onPress: () => {
+            navigation.navigate('AdminCreate', {
+              screen: 'FinancialInfo'
+            });
+          }
+        }
+      ]
     );
   };
 
-  const handleFloorSelection = (floor) => {
-    setSelectedFloor(floor);
-    // Seçili daireleri temizle
-    setSelectedUnits([]);
+  const handleFloorChange = (newFloor) => {
+    if (newFloor >= 0 && newFloor < selectedApartment.numberOfFloors) {
+      setSelectedFloor(newFloor);
+      setSelectedUnits([]);
+    }
   };
 
   const generateFloorList = (totalFloors, hasBasement = false) => {
@@ -2013,196 +1951,6 @@ const ApartmentInfoScreen = () => {
       floors.push(i);
     }
     return floors;
-  };
-
-  const FloorSelector = ({ currentFloor, onFloorChange }) => {
-    const possibleBasements = [-5, -4, -3, -2, -1];
-
-    // Geçici seçim için yeni state
-    const [tempBasementFloor, setTempBasementFloor] = useState(null);
-
-    const handleBasementSelect = (floor) => {
-      // Sadece geçici seçimi güncelle, henüz katları ekleme
-      setTempBasementFloor(floor);
-    };
-
-    const handleConfirmBasement = () => {
-      if (!tempBasementFloor) return;
-
-      // Seçilen kattan -1'e kadar olan tüm katları ekle
-      const basementFloors = [];
-      for (let i = tempBasementFloor; i <= -1; i++) {
-        basementFloors.push(i);
-      }
-      
-      // Zemin kat ve üst katları ekle
-      const upperFloors = [0]; // Zemin kat
-      // Toplam kat sayısından bodrum kat sayısını çıkarma
-      const remainingFloors = selectedApartment.numberOfFloors - 1; // -1 for ground floor
-      
-      // Üst katları ekle (1'den başlayarak)
-      for (let i = 1; i <= remainingFloors; i++) {
-        upperFloors.push(i);
-      }
-
-      // Tüm katları birleştir
-      const allFloors = [...basementFloors.sort((a, b) => a - b), ...upperFloors];
-      
-      setAvailableFloors(allFloors);
-      setSelectedBasementFloor(tempBasementFloor);
-      setSelectedFloor(tempBasementFloor); // En alt kattan başla
-      setShowBasementSelector(false);
-      setTempBasementFloor(null);
-    };
-
-    const getFloorDisplay = (floor) => {
-      // Sadece 0. katta "Zemin" göster
-      return floor === 0 ? 'Zemin' : `${floor}. Kat`;
-    };
-
-    return (
-      <View style={styles.floorSelectorContainer}>
-        <TouchableOpacity 
-          style={styles.floorArrowButton}
-          onPress={() => onFloorChange('up')}
-          disabled={currentFloor === Math.max(...availableFloors)}
-        >
-          <MaterialIcons 
-            name="keyboard-arrow-up" 
-            size={30} 
-            color={currentFloor === Math.max(...availableFloors) ? colors.lightGray : colors.primary} 
-          />
-        </TouchableOpacity>
-
-        <View style={styles.currentFloorContainer}>
-          <Text style={styles.currentFloorText}>
-            {getFloorDisplay(currentFloor)}
-          </Text>
-        </View>
-
-        <View style={styles.downArrowContainer}>
-          <TouchableOpacity 
-            style={styles.floorArrowButton}
-            onPress={() => onFloorChange('down')}
-            disabled={currentFloor === Math.min(...availableFloors)}
-          >
-            <MaterialIcons 
-              name="keyboard-arrow-down" 
-              size={30} 
-              color={currentFloor === Math.min(...availableFloors) ? colors.lightGray : colors.primary} 
-            />
-          </TouchableOpacity>
-
-          {!selectedBasementFloor && (
-            <TouchableOpacity 
-              style={[
-                styles.addBasementButton,
-                selectedBasementFloor && styles.disabledButton
-              ]}
-              onPress={() => setShowBasementSelector(true)}
-              disabled={selectedBasementFloor}
-            >
-              <MaterialIcons 
-                name="add" 
-                size={24} 
-                color={selectedBasementFloor ? colors.lightGray : colors.primary} 
-              />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {showBasementSelector && (
-          <View style={styles.basementSelectorContainer}>
-            <Text style={styles.basementSelectorTitle}>Bodrum Kat Seç</Text>
-            {possibleBasements.map((floor) => (
-              <TouchableOpacity
-                key={floor}
-                style={[
-                  styles.basementOptionButton,
-                  tempBasementFloor === floor && styles.selectedBasementButton
-                ]}
-                onPress={() => handleBasementSelect(floor)}
-              >
-                <Text style={[
-                  styles.basementOptionText,
-                  tempBasementFloor === floor && styles.selectedBasementText
-                ]}>
-                  {floor}. Kat
-                </Text>
-              </TouchableOpacity>
-            ))}
-            <PaperButton
-              mode="contained"
-              onPress={handleConfirmBasement}
-              style={styles.confirmBasementButton}
-              disabled={!tempBasementFloor}
-            >
-              Onayla
-            </PaperButton>
-          </View>
-        )}
-      </View>
-    );
-  };
-
-  const ResetButton = ({ onReset, section }) => (
-    <TouchableOpacity 
-      style={styles.resetButton}
-      onPress={() => {
-        Alert.alert(
-          "Değişiklikleri Geri Al",
-          `${section} bölümündeki tüm değişiklikler geri alınacak. Emin misiniz?`,
-          [
-            { text: "İptal", style: "cancel" },
-            { 
-              text: "Geri Al", 
-              onPress: onReset,
-              style: "destructive"
-            }
-          ]
-        );
-      }}
-    >
-      <MaterialIcons name="restore" size={20} color={colors.error} />
-      <Text style={styles.resetButtonText}>Değişiklikleri Geri Al</Text>
-    </TouchableOpacity>
-  );
-
-  const handleFloorChange = (direction) => {
-    const currentIndex = availableFloors.indexOf(selectedFloor);
-    let newIndex;
-    
-    if (direction === 'up' && currentIndex < availableFloors.length - 1) {
-      newIndex = currentIndex + 1;
-    } else if (direction === 'down' && currentIndex > 0) {
-      newIndex = currentIndex - 1;
-    } else {
-      return;
-    }
-
-    setSelectedFloor(availableFloors[newIndex]);
-    setCurrentFloorIndex(newIndex);
-    setSelectedUnits([]); // Seçili daireleri temizle
-  };
-
-  const handleResetFloors = () => {
-    const updatedUnits = [...apartmentUnits].map(unit => ({
-      ...unit,
-      floor: undefined
-    }));
-    setApartmentUnits(updatedUnits);
-    setUnassignedUnits(Array.from({ length: selectedApartment.totalApartments }, (_, i) => i + 1));
-    setSelectedFloor(0);
-    setCurrentFloorIndex(0);
-    setCompletionStatus(prev => ({ ...prev, floor: false }));
-    setHasBasement(false);
-    setAvailableFloors(generateFloorList(numberOfFloors, false));
-  };
-
-  // Kat hesaplama yardımcı fonksiyonu ekleyelim
-  const calculateTotalFloors = (basementCount) => {
-    // Toplam kat sayısından bodrum kat sayısını çıkar ve zemin katı da hesaba kat
-    return numberOfFloors - basementCount;
   };
 
   const handleTypeSelect = (type) => {
@@ -2222,118 +1970,40 @@ const ApartmentInfoScreen = () => {
     setSelectedUnits([]);
   };
 
-  const renderApartmentList = () => (
-    <View style={styles.listContainer}>
-      <Text style={styles.listTitle}>Mevcut Apartmanlar</Text>
-      <FlatList
-        data={apartments}
-        keyExtractor={(item, index) => index.toString()}
-        renderItem={({ item, index }) => (
-          <View style={styles.apartmentCard}>
+  const renderApartmentList = () => {
+    return (
+      <View style={styles.listContainer}>
+        {apartments.map((apartment, index) => (
+          <TouchableOpacity
+            key={index}
+            style={styles.apartmentCard}
+            onPress={() => {
+              setSelectedApartment(apartment);
+              setShowApartmentDetails(true);
+            }}
+          >
             <View style={styles.cardHeader}>
-              <View style={styles.headerInfo}>
-                <Text style={styles.apartmentName}>{item.apartmentName}</Text>
-                <Text style={styles.apartmentDetails}>
-                  {item.totalApartments} Daire • {item.numberOfFloors} Kat
-                </Text>
-              </View>
-              <View style={styles.actionButtons}>
-                <TouchableOpacity 
-                  onPress={() => handleEditApartment(item)}
-                  style={styles.editButton}
-                >
-                  <MaterialIcons name="edit" size={24} color={colors.primary} />
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={() => handleDeleteApartment(index)}
-                  style={styles.deleteButton}
-                >
-                  <MaterialIcons name="delete" size={24} color={colors.error} />
-                </TouchableOpacity>
-              </View>
+              <Text style={styles.buildingName}>{apartment.buildingName}</Text>
+              <Text style={styles.address}>{apartment.address}</Text>
             </View>
-
             <View style={styles.cardContent}>
-              <View style={styles.addressSection}>
-                <Text style={styles.addressText}>
-                  {item.street} No:{item.buildingNumber}
-                </Text>
-                <Text style={styles.addressText}>
-                  {item.neighborhood}, {item.district}/{item.city}
-                </Text>
+              <View style={styles.infoRow}>
+                <MaterialIcons name="apartment" size={20} color={Colors.text.secondary} />
+                <Text style={styles.infoText}>{`${apartment.totalFloors} Kat`}</Text>
               </View>
-
-              <View style={styles.utilitiesSection}>
-                <Text style={styles.sectionTitle}>Dahili Hizmetler</Text>
-                <View style={styles.utilitiesRow}>
-                  {item.includedUtilities.electric && (
-                    <View style={styles.utilityItem}>
-                      <MaterialIcons name="bolt" size={18} color={colors.success} />
-                      <Text style={styles.utilityText}>Elektrik</Text>
-                    </View>
-                  )}
-                  {item.includedUtilities.water && (
-                    <View style={styles.utilityItem}>
-                      <MaterialIcons name="water-drop" size={18} color={colors.success} />
-                      <Text style={styles.utilityText}>Su</Text>
-                    </View>
-                  )}
-                  {item.includedUtilities.gas && (
-                    <View style={styles.utilityItem}>
-                      <MaterialIcons name="local-fire-department" size={18} color={colors.success} />
-                      <Text style={styles.utilityText}>Doğalgaz</Text>
-                    </View>
-                  )}
-                  {item.includedUtilities.internet && (
-                    <View style={styles.utilityItem}>
-                      <MaterialIcons name="wifi" size={18} color={colors.success} />
-                      <Text style={styles.utilityText}>İnternet</Text>
-                    </View>
-                  )}
-                </View>
+              <View style={styles.infoRow}>
+                <MaterialIcons name="home" size={20} color={Colors.text.secondary} />
+                <Text style={styles.infoText}>{`${apartment.totalUnits} Daire`}</Text>
               </View>
-
-              {item.units && (
-                <View style={styles.unitsSection}>
-                  <Text style={styles.sectionTitle}>Daire Bilgileri</Text>
-                  <FlatList
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    data={item.units}
-                    keyExtractor={(unit, unitIndex) => unitIndex.toString()}
-                    renderItem={({ item: unit }) => (
-                      <View style={styles.unitSummary}>
-                        <Text style={styles.unitNumber}>Daire {unit.unitNumber}</Text>
-                        <Text style={styles.unitType}>{unit.type}</Text>
-                        <Text style={styles.unitFloor}>
-                          {unit.floor === 0 ? 'Zemin Kat' : `${unit.floor}. Kat`}
-                        </Text>
-                        <Text style={styles.unitRent}>Kira: {unit.rentAmount}₺</Text>
-                        <Text style={styles.unitDeposit}>Depozito: {unit.depositAmount}₺</Text>
-                        {unit.hasBalcony && (
-                          <View style={styles.balconyIndicator}>
-                            <MaterialIcons name="deck" size={16} color={colors.success} />
-                            <Text style={styles.balconyText}>Balkonlu</Text>
-                          </View>
-                        )}
-                        {unit.notes && (
-                          <Text style={styles.unitNotes} numberOfLines={2}>
-                            {unit.notes}
-                          </Text>
-                        )}
-                      </View>
-                    )}
-                    style={styles.unitsScrollView}
-                  />
-                </View>
-              )}
             </View>
-          </View>
-        )}
-        contentContainerStyle={styles.listContent}
-      />
-    </View>
-  );
+            <View style={styles.cardFooter}>
+              <MaterialIcons name="chevron-right" size={24} color={Colors.text.secondary} />
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
 
   const handleEditApartment = (apartment) => {
     // Form alanlarını seçilen apartman bilgileriyle doldur
@@ -2399,89 +2069,6 @@ const ApartmentInfoScreen = () => {
     );
   };
 
-  const [selectedImages, setSelectedImages] = useState([]); // Seçilen görseller
-  const [isUploading, setIsUploading] = useState(false);
-
-  // Görsel seçme işlemini güncelle
-  const pickImage = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
-      });
-
-      if (!result.canceled) {
-        setSelectedImages([{
-          uri: result.assets[0].uri,
-          type: 'image/jpeg',
-          name: `building_${Date.now()}.jpg`
-        }]);
-      }
-    } catch (error) {
-      console.error('Görsel seçme hatası:', error);
-      Alert.alert('Hata', 'Görsel seçilirken bir hata oluştu');
-    }
-  };
-
-  // Görsel silme işlemi
-  const removeImage = (imageId) => {
-    setSelectedImages(prevImages => 
-      prevImages.filter(image => image.id !== imageId)
-    );
-  };
-
-  // Görselleri yükleme işlemi
-  const uploadImages = async () => {
-    const uploadedImages = [];
-    
-    for (const image of selectedImages) {
-      try {
-        const timestamp = Date.now();
-        const extension = image.name ? image.name.split('.').pop() : 'jpg';
-        const fileName = `image_${timestamp}.${extension}`;
-
-        const formData = new FormData();
-        formData.append('file', {
-          uri: image.uri,
-          type: image.type || "image/jpeg",
-          name: fileName
-        });
-
-        // URL yapısını düzelt
-        const config = {
-          method: 'POST',
-          url: `${API_ENDPOINTS.IMAGE}/upload`, // /upload endpoint'i
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-          data: formData
-        };
-
-        console.log(" Görsel yükleme isteği:", {
-          url: config.url,
-          fileName: fileName
-        });
-
-        const response = await axios(config);
-        
-        if (response.data) {
-          uploadedImages.push({
-            id: response.data.imageId || "",
-            url: response.data.imageUrl || "",
-            fileName: fileName
-          });
-        }
-      } catch (error) {
-        logApiError(error, "GÖRSEL YÜKLEME");
-        throw new Error(`${image.name || 'Görsel'} yüklenirken hata oluştu: ${error.message}`);
-      }
-    }
-    
-    return uploadedImages;
-  };
-
   // Apartman bilgilerini sıfırla
   const resetApartment = async () => {
     try {
@@ -2497,1226 +2084,110 @@ const ApartmentInfoScreen = () => {
     }
   };
 
-  // State tanımlamalarına ekleyin
-  const [isLoading, setIsLoading] = useState(false);
-
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView 
-        style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
-        enabled
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={Gradients.indigo[0]} />
+      
+      {/* Sabit Header */}
+      <LinearGradient
+        colors={Gradients.indigo}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerGradient}
       >
-        <ScrollView
+        <View style={styles.headerContent}>
+          <View style={[styles.animationContainer, { height: 120, width: 120 }]}>
+            <LottieView 
+              source={animate} 
+              autoPlay 
+              loop 
+              style={styles.animation}
+            />
+          </View>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>Bina Bilgileri</Text>
+            <Text style={styles.headerSubtitle}>
+              {apartments.length > 0 
+                ? `${apartments.length} bina kayıtlı`
+                : 'Henüz bina eklemediniz'}
+            </Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      {/* Kaydırılabilir İçerik */}
+      <KeyboardAvoidingView 
+        style={styles.contentContainer} 
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
+      >
+        <ScrollView 
           ref={scrollViewRef}
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={styles.scrollViewContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          bounces={true}
         >
-          <View style={styles.headerContainer}>
-            <LottieView source={animate} autoPlay loop style={styles.animation} />
-            <View style={styles.titleContainer}>
-              <Text style={styles.title}>Apartman Bilgileri</Text>
-            </View>
-          </View>
-
           {showApartmentDetails ? (
             renderApartmentDetails()
+          ) : showBuildingFeatures ? (
+            renderBuildingFeatures()
           ) : showForm ? (
             renderApartmentForm()
-          ) : apartments.length === 0 ? (
-            renderNoApartmentMessage()
           ) : (
-            renderApartmentList()
+            renderNoApartmentMessage()
           )}
         </ScrollView>
-
-        {!showForm && !showApartmentDetails && (
-          <TouchableOpacity 
-            style={styles.addButton}
-            onPress={() => {
-              resetForm();
-              setShowForm(true);
-            }}
-          >
-            <MaterialIcons name="add" size={30} color={colors.white} />
-          </TouchableOpacity>
-        )}
       </KeyboardAvoidingView>
-    </SafeAreaView>
+
+      {/* Finans ekranına geçiş butonu */}
+      <TouchableOpacity
+        style={styles.financeButton}
+        onPress={() => {
+          navigation.navigate('AdminCreate', {
+            screen: 'FinancialInfo'
+          });
+        }}
+      >
+        <LinearGradient
+          colors={['#6366F1', '#4F46E5']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.financeButtonGradient}
+        >
+          <Text style={styles.financeButtonText}>Finansal Bilgilere Geç</Text>
+          <MaterialIcons name="arrow-forward" size={24} color="#FFFFFF" style={{ marginLeft: 8 }} />
+        </LinearGradient>
+      </TouchableOpacity>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.white,
-  },
   container: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: Platform.OS === 'ios' ? 100 : 90,
-  },
-  headerContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 60 : 30,
-  },
-  animation: {
-    width: 200,
-    height: 200,
-  },
-  titleContainer: {
-    paddingVertical: 10,
-    paddingHorizontal: 30,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: "bold",
-    color: colors.primary,
-    textAlign: "center",
-  },
-  formContainer: {
-    padding: 20,
-    width: '100%',
-  },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 15,
-    width: "100%",
-  },
-  icon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: colors.white,
-    borderRadius: 10,
-  },
-  submitButton: {
-    marginTop: 20,
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    width: "70%",
-    alignSelf: "center",
-  },
-  submitButtonLabel: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  addButton: {
+  headerGradient: {
     position: 'absolute',
-    right: 20,
-    bottom: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  listContainer: {
-    flex: 1,
-    paddingHorizontal: 16, // Yatay padding ekleyerek kenarlardan boşluk bırak
-    marginVertical: 20,
-  },
-  apartmentCard: {
-    width: '100%', // Kartın genişliğini tam ekran yap
-    backgroundColor: colors.white,
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-    elevation: 3,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  apartmentInfo: {
-    flex: 1,
-    marginLeft: 10,
-  },
-  apartmentName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.black,
-  },
-  apartmentDetails: {
-    fontSize: 14,
-    color: colors.darkGray,
-    marginTop: 4,
-  },
-  detailsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-  },
-  detailsButtonText: {
-    color: colors.primary,
-    marginLeft: 5,
-    fontWeight: '500',
-  },
-  detailsContainer: {
-    flex: 1,
-    marginVertical: 10,
-    marginHorizontal: 20,
-    padding: 5,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 1.84,
-    elevation: 5,
-  },
-  detailsTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: colors.black,
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  unitCard: {
-    borderRadius: 10,
-    padding: 15,
-   
-    width: 330,
-  },
-  unitHeader: {
-    flex: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  unitTitle: {
-    fontSize: 21,
-    fontWeight: "bold",
-    color: colors.black,
-  },
-  counterContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
-    marginBottom: 10,
-  },
-  counterLabel: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: 16,
-    color: colors.darkGray,
-  },
-  counterButtons: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.textPrimary,
-    borderRadius: 8,
-  },
-  counterButton: {
-    width: 30,
-    height: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.white,
-    borderRadius: 15,
-    opacity: 1,
-  },
-  counterButtonText: {
-    fontSize: 18,
-    color: colors.primary,
-    fontWeight: "bold",
-  },
-  counterValue: {
-    marginHorizontal: 5,
-    fontSize: 14,
-    fontWeight: "normal",
-    color: colors.primary,
-  },
-  dropdownContainer: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dropdownLabel: {
-    fontSize: 16,
-    color: colors.darkGray,
-  },
-  dropdown: {
-    borderColor: colors.primary,
-    borderRadius: 5,
-  },
-  unitInput: {
-    marginBottom: 10,
-    backgroundColor: colors.white,
-  },
-  notesInput: {
-    backgroundColor: colors.white,
-    height: 100,
-  },
-  saveButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    width: "70%",
-    alignSelf: "center",
-  },
-  saveButtonLabel: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: colors.white,
-  },
-  utilitiesContainer: {
-    marginTop: 20,
-    padding: 15,
-    backgroundColor: colors.white,
-    borderRadius: 10,
-    elevation: 2,
-  },
-  utilitiesTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginBottom: 15,
-  },
-  checkboxGroup: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  checkbox: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: colors.primary,    
-  },
-  checkboxChecked: {
-    backgroundColor: colors.primary,
-  },
-  checkboxLabel: {
-    color: colors.primary,
-    fontSize: 14,
-  },
-  checkboxLabelChecked: {
-    color: colors.white,
-  },
-  balconyContainer: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: "space-between",
-    marginBottom: 10,
-    gap: 10,  
-  },
-  balconyLabel: {
-    fontSize: 16,
-    color: colors.darkGray,
-    marginRight: 10,
-  },
-  horizontalList: {
-    paddingHorizontal: 10,
-    paddingBottom: 20,
-  },
-  saveButtonContainer: {
-    borderRadius: 10,
-    marginBottom: 20,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    marginBottom: 10,
-    alignItems: 'center',
-  },
-  navigationButton: {
-    padding: 10,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    
-  },
-  noApartmentText: {
-    textAlign: 'center',
-    fontSize: 18,
-    color: colors.gray,
-   
-  },
-  disabledButtonText: {
-    color: colors.darkGray,
-    opacity: 0.5,
-  },
-  smallText: {
-    fontSize: 14,
-    color: colors.darkGray,
-    marginTop: 6,
-  },
-  dropdownWrapper: {
-    flex: 1,
-    position: 'relative',
-  },
-  dropdown: {
-    position: 'absolute',
-    top: '100%',
+    top: 0,
     left: 0,
     right: 0,
-    backgroundColor: colors.textPrimary,
-    borderRadius: 4,
-    
-    zIndex: 1000,
-    elevation: 5,
-    maxHeight: 200,
-  },
-  dropdownScroll: {
-    maxHeight: 200,
-  },
-  dropdownItem: {
-    padding: 10,
-    marginVertical: 3,
-
-    backgroundColor:colors.lightGray,
-  },
-  dropdownText: {
-    fontSize: 16,
-    color: colors.white,
-  },
-  dropdownRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  dropdownLabel: {
-    fontSize: 16,
-    color: colors.darkGray,
-    marginRight: 10,
-  },
-  dropdownButton: {
-    borderColor: colors.primary,
-    borderWidth: 1,
-    borderRadius: 5,
-    backgroundColor: colors.white,
-    elevation: 2,
-  },
-  typeSelectionContainer: {
-    padding: 15,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: colors.primary,
-  },
-  typeButtonsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    justifyContent: 'center',
-  },
-  typeButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    backgroundColor: colors.white,
-    opacity: (props) => props.disabled ? 0.5 : 1,
-  },
-  selectedTypeButton: {
-    backgroundColor: colors.primary,
-  },
-  typeButtonText: {
-    color: colors.primary,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  selectedTypeButtonText: {
-    color: colors.white,
-  },
-  unitSelectorContainer: {
-    padding: 15,
-  },
-  quickSelectContainer: {
-    marginBottom: 15,
-  },
-  quickSelectTitle: {
-    fontSize: 16,
-    marginBottom: 10,
-    color: colors.darkGray,
-  },
-  quickSelectButton: {
-    marginRight: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-    backgroundColor: colors.lightGray,
-  },
-  quickSelectButtonText: {
-    color: colors.primary,
-    fontWeight: '500',
-  },
-  unitsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    justifyContent: 'center',
-    marginVertical: 20,
-  },
-  unitButton: {
-    width: 60,
-    height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    backgroundColor: colors.white,
-  },
-  selectedUnitButton: {
-    backgroundColor: colors.primary,
-  },
-  alreadySetUnit: {
-    borderColor: colors.success,
-    backgroundColor: colors.lightGreen,
-  },
-  unitButtonText: {
-    color: colors.primary,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  selectedUnitButtonText: {
-    color: colors.white,
-  },
-  existingTypeText: {
-    fontSize: 12,
-    color: colors.success,
-    marginTop: 2,
-  },
-  bulkInputContainer: {
-    padding: 15,
-    borderRadius: 8,
-  },
-  selectedCountText: {
-    fontSize: 16,
-    color: colors.primary,
-    marginBottom: 10,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  bulkInput: {
-    backgroundColor: colors.white,
-    marginBottom: 10,
-  },
-  updateButton: {
-    marginTop: 10,
-    backgroundColor: colors.primary,
-  },
-
-  stepsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 15,
-    borderRadius: 8,
-    marginBottom: 20,
-    elevation: 2,
-  },
-  stepItem: {
-    flex: 1,
-    flexWrap: 'wrap',
-    flexDirection: 'row',
-    gap: 5,
-  },
-  stepTitle: {
-    fontSize: 14,
-    color: colors.darkGray,
-  },
-  completedUnitButton: {
-    borderColor: colors.success,
-    backgroundColor: colors.lightGreen,
-  },
-  inactiveUnitButton: {
-    opacity: 0.5,
-    backgroundColor: colors.lightGray,
-  },
-  navigationButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-  },
-  navButton: {
-    flex: 1,
-    marginHorizontal: 5,
-  },
-  primaryButton: {
-    backgroundColor: colors.primary,
-  },
-  completedUnitButtonText: {
-    color: colors.success,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  unitTypeText: {
-    fontSize: 12,
-    color: colors.success,
-    marginTop: 2,
-  },
-  stepsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 15,
-    borderRadius: 8,
-    marginBottom: 20,
-    elevation: 2,
-  },
-  stepItem: {
-    flex: 1,
-    flexWrap: 'wrap',
-
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 5,
-  },
-  stepTitle: {
-    fontSize: 14,
-    color: colors.darkGray,
-  },
-  completedUnitButton: {
-    borderColor: colors.success,
-    backgroundColor: colors.lightGreen,
-  },
-  inactiveUnitButton: {
-    opacity: 0.5,
-    backgroundColor: colors.lightGray,
-  },
-  navigationButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-  },
-  navButton: {
-    flex: 1,
-    marginHorizontal: 5,
-  },
-  primaryButton: {
-    backgroundColor: colors.primary,
-  },
-  completedUnitButtonText: {
-    color: colors.success,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  unitTypeText: {
-    fontSize: 12,
-    color: colors.success,
-    marginTop: 2,
-  },
-  inputHeader: {
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  inputTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginBottom: 5,
-  },
-  remainingText: {
-    fontSize: 14,
-    color: colors.darkGray,
-  },
-  amountInputContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  amountInput: {
-    backgroundColor: colors.white,
-  },
-  notesInputContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  notesInput: {
-    backgroundColor: colors.white,
-    height: 100,
-  },
-  unitAmountText: {
-    fontSize: 12,
-    color: colors.success,
-    marginTop: 2,
-  },
-  applyButton: {
-    marginTop: 20,
-    marginHorizontal: 20,
-    backgroundColor: colors.primary,
-  },
-  floorContainer: {
-    padding: 15,
-   
-
-    borderRadius: 10,
-    marginVertical: 10,
-    marginHorizontal: 20,
-   
-  },
-  floorsGrid: {
-    padding: 10,
-  },
-  floorUnits: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    justifyContent: 'center',
-    padding: 15,
-  },
-  unitButton: {
-    width: 60,
-    height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    backgroundColor: colors.white,
-  },
-  balconyUnitButton: {
-    backgroundColor: colors.lightGreen,
-    borderColor: colors.success,
-  },
-  balconyUnitText: {
-    color: colors.success,
-  },
-  unitDetailText: {
-    fontSize: 10,
-    color: colors.darkGray,
-    marginTop: 2,
-  },
-  selectedFloorRow: {
-    backgroundColor: colors.lightBlue,
-    borderColor: colors.primary,
-    borderWidth: 1,
-  },
-  floorNumberContainer: {
-    width: 80,
-    padding: 5,
-    borderRadius: 4,
-  },
-  selectedFloorNumber: {
-    color: colors.primary,
-    fontWeight: 'bold',
-  },
-  unitFloorText: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    fontSize: 10,
-    color: colors.darkGray,
-    backgroundColor: colors.lightGray,
-    padding: 2,
-    borderRadius: 4,
-  },
-  floorSelectorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 15,
-    padding: 10,
-  },
-  floorArrowButton: {
-    padding: 10,
-  },
-  currentFloorContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: colors.white,
-    borderRadius: 8,
-    marginHorizontal: 10,
-    minWidth: 120,
-    alignItems: 'center',
-  },
-  currentFloorText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
-  addBasementButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: colors.lightBlue,
-    marginLeft: 10,
-  },
-  addBasementText: {
-    marginLeft: 5,
-    color: colors.primary,
-    fontSize: 12,
-  },
-  resetButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: colors.lightRed,
-    alignSelf: 'center',
-    marginTop: 10,
-  },
-  resetButtonText: {
-    marginLeft: 5,
-    color: colors.error,
-    fontSize: 12,
-  },
-  basementSelectorContainer: {
-    position: 'absolute',
-    right: 40,
-    top: 45,
-    backgroundColor: colors.white,
-    borderRadius: 8,
-    padding: 15,
-    elevation: 4,
-    minWidth: 120,
-    zIndex: 1000,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  basementSelectorTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  basementOptionButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 4,
-    marginVertical: 2,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  selectedBasementButton: {
-    backgroundColor: colors.primary,
-  },
-  basementOptionText: {
-    color: colors.primary,
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  selectedBasementText: {
-    color: colors.white,
-  },
-  addBasementButton: {
-    padding: 5,
-    marginLeft: 5,
-    backgroundColor: colors.lightBlue,
-    borderRadius: 20,
-    width: 34,
-    height: 34,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  disabledButton: {
-    opacity: 0.5,
-    backgroundColor: colors.lightGray,
-  },
-  confirmBasementButton: {
-    marginTop: 10,
-    backgroundColor: colors.primary,
-  },
-  listContent: {
-    paddingBottom: 20,
-  },
-  listTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginBottom: 15,
-    marginLeft: 15,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  headerInfo: {
-    flex: 1,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  editButton: {
-    padding: 8,
-    backgroundColor: colors.lightBlue,
-    borderRadius: 8,
-  },
-  deleteButton: {
-    padding: 8,
-    backgroundColor: colors.lightRed,
-    borderRadius: 8,
-  },
-  cardContent: {
-    gap: 12,
-  },
-  utilityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.lightGreen,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    gap: 4,
-  },
-  utilityText: {
-    fontSize: 12,
-    color: colors.success,
-  },
-  unitsSection: {
-    marginBottom: 20,
-  },
-  unitsScrollView: {
-    marginTop: 8,
-  },
-  unitSummary: {
-    marginRight: 10,
-    padding: 10,
-    borderRadius: 5,
-    backgroundColor: colors.white,
-    elevation: 2,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  unitNumber: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
-  unitType: {
-    fontSize: 14,
-    color: colors.success,
-    marginTop: 2,
-  },
-  unitFloor: {
-    fontSize: 12,
-    color: colors.darkGray,
-    marginTop: 2,
-  },
-  unitRent: {
-    fontSize: 12,
-    color: colors.success,
-    marginTop: 2,
-  },
-  unitDeposit: {
-    fontSize: 12,
-    color: colors.success,
-    marginTop: 2,
-  },
-  balconyIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 5,
-  },
-  balconyText: {
-    fontSize: 12,
-    color: colors.success,
-    marginTop: 2,
-  },
-  unitNotes: {
-    fontSize: 12,
-    color: colors.darkGray,
-    fontStyle: 'italic',
-    marginTop: 4,
-  },
-  stepsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap', // Satır sonunda alt satıra geçmesi için
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    gap: 8, // Adımlar arası boşluk
-  },
-  stepItemCompleted: {
-    backgroundColor: colors.lightBlue, // Tamamlanan adımlar için arka plan
-  },
-  stepIcon: {
-    marginRight: 4,
-    color: colors.darkGray, // Tamamlanmamış adımlar için
-  },
-  stepIconCompleted: {
-    color: colors.primary, // Tamamlanan adımlar için
-  },
-  stepText: {
-    fontSize: 12, // Yazı boyutunu küçült
-    color: colors.darkGray,
-    fontWeight: '500',
-  },
-  stepTextCompleted: {
-    color: colors.primary, // Tamamlanan adımlar için
-  },
-  // Seçili kat için
-  selectedFloorButton: {
-    backgroundColor: "#4A90E2", // Orta mavi
-  },
-  // Seçili olmayan katlar için
-  floorButton: {
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#4A90E2",
-  },
-  // Kat numarası text rengi
-  floorButtonText: {
-    color: "#4A90E2", // Normal durumda
-  },
-  selectedFloorButtonText: {
-    color: "#FFFFFF", // Seçili durumda
-  },
-  featuresContainer: {
-    marginTop: 20,
-    padding: 15,
-    backgroundColor: colors.white,
-    borderRadius: 10,
-    elevation: 2,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-    paddingRight: 10, // Switch için sağ tarafta boşluk bırak
-  },
-  featureLabel: {
-    fontSize: 16,
-    color: colors.darkGray,
-    flex: 1,
-  },
-  featureControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end', // Sağa hizala
-    flex: 1,
-    gap: 15, // Switch ile radio butonlar arası mesafe
-  },
-  radioGroupContainer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginRight: 10, // Switch'ten önce boşluk bırak
-  },
-  radioGroup: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  radioButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    minWidth: 80,
-    alignItems: 'center',
-  },
-  radioButtonSelected: {
-    backgroundColor: colors.primary,
-  },
-  radioText: {
-    color: colors.primary,
-    fontSize: 14,
-  },
-  radioTextSelected: {
-    color: colors.white,  // Seçili durumda metin rengi beyaz
-  },
-  switchGroup: {
-    marginTop: 10,
-  },
-  ageInput: {
-    width: 80,
-    height: 40,
-    backgroundColor: colors.white,
-  },
-  datePickerContainer: {
-    alignItems: 'flex-end',
-  },
-  datePickerButton: {
-    backgroundColor: colors.white,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  datePickerButtonText: {
-    color: colors.primary,
-    fontSize: 14,
-  },
-  buildingAgeText: {
-    fontSize: 12,
-    color: colors.darkGray,
-    marginTop: 4,
-    fontStyle: 'italic',
-  },
-  iosDatePickerContainer: {
-    backgroundColor: colors.white,
-    borderRadius: 10,
-    overflow: 'hidden',
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1000,
-  },
-  iosDatePickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.lightGray,
-  },
-  iosDatePickerButtonText: {
-    color: colors.primary,
-    fontSize: 16,
-  },
-  confirmText: {
-    fontWeight: 'bold',
-  },
-  imageUploadContainer: {
-    marginTop: 20,
-    padding: 15,
-    backgroundColor: colors.white,
-    borderRadius: 10,
-    elevation: 2,
-    minHeight: 300, // Container'a minimum yükseklik ekleyelim
-  },
-  imagePreviewContainer: {
-    height: 200,
-    borderRadius: 10,
-    overflow: 'hidden',
-    marginVertical: 15,
-    backgroundColor: colors.lightGray,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  imagePreview: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  placeholderImage: {
-    alignItems: 'center',
-  },
-  placeholderText: {
-    marginTop: 10,
-    color: colors.darkGray,
-    fontSize: 14,
-  },
-  imageButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 15,
-  },
-  imageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    gap: 8,
-  },
-  imageButtonSelected: {
-    backgroundColor: colors.primary,
-  },
-  uploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.success,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 15,
-    gap: 8,
-  },
-  uploadButtonText: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  uploadingButton: {
-    opacity: 0.7,
-  },
-  imageListContainer: {
-    paddingVertical: 10,
-    paddingHorizontal: 5,
-  },
-  addImageCard: {
-    width: 150,
-    height: 200,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: colors.primary,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 5,
-    backgroundColor: 'transparent',
-  },
-  addImageText: {
-    color: colors.primary,
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  imageItemContainer: {
-    width: 150,
-    height: 200,
-    marginHorizontal: 5,
-    borderRadius: 10,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  removeImageButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    borderRadius: 15,
-    padding: 6,
+    height: 280,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
     zIndex: 1,
   },
-  uploadedBadge: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 15,
-    padding: 4,
-    zIndex: 1,
+  contentContainer: {
+    flex: 1,
+    marginTop: 260,
   },
+  scrollViewContent: {
+    paddingTop: 20,
+  },
+  // ... diğer stiller aynı kalacak ...
 });
 
 export default ApartmentInfoScreen;
+

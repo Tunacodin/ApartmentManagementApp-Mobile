@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -10,12 +10,16 @@ import {
   Platform,
   ScrollView,
   KeyboardAvoidingView,
+  Dimensions,
+  StatusBar,
 } from "react-native";
 import LottieView from "lottie-react-native";
-import { TextInput as PaperInput } from "react-native-paper";
-import colors from "../../../styles/colors";
+import { TextInput as PaperInput, Surface } from "react-native-paper";
+import { Colors, Gradients } from '../../../constants/Colors';
+import Fonts from '../../../constants/Fonts';
 import animate from "../../../assets/json/animInformation.json";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+import { LinearGradient } from 'expo-linear-gradient';
 import axios from "axios";
 import { API_ENDPOINTS, axiosConfig } from '../../../config/apiConfig';
 
@@ -55,7 +59,7 @@ api.interceptors.response.use(
   }
 );
 
-const AdminInfoScreen = () => {
+const AdminInfoScreen = ({ navigation }) => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -63,304 +67,283 @@ const AdminInfoScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [password, setPassword] = useState("");
+  const scrollViewRef = useRef(null);
+  const { height: screenHeight } = Dimensions.get('window');
 
-  const validateForm = () => {
-    if (!firstName || !lastName || !email || !phone || !password) {
-      Alert.alert("Hata", "Lütfen tüm alanları doldurunuz.");
-      return false;
-    }
-
-    // Email formatı kontrolü
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(email)) {
-      Alert.alert("Hata", "Lütfen geçerli bir e-posta adresi girin.");
-      return false;
-    }
-
-    return true;
-  };
-
-  const handleSubmit = async () => {
-    // Form verilerini detaylı logla
-    console.log("==================== FORM VERİLERİ ====================");
-    console.log("Ad:", firstName);
-    console.log("Soyad:", lastName);
-    console.log("Email:", email);
-    console.log("Telefon:", phone);
-    console.log("Şifre:", password ? "********" : "Boş");
-    console.log("====================================================");
-    
-    if (!validateForm()) {
-      console.log("❌ Form doğrulama başarısız");
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const userData = {
-        id: 0,
-        fullName: `${firstName} ${lastName}`,
-        email: email.trim(),
-        phoneNumber: phone.trim(),
-        role: "admin",
-        isActive: true,
-        profileImageUrl: "https://example.com/default-profile.jpg",
-        description: "Yeni yönetici hesabı",
-        password: password
-      };
-
-      // API isteği detaylarını logla
-      console.log("\n=================== API İSTEĞİ ===================");
-      console.log("📍 Endpoint:", API_ENDPOINTS.ADMIN);
-      console.log("📦 Gönderilen Veriler:", JSON.stringify(userData, null, 2));
-      console.log("===================================================\n");
-
-      const response = await api.post('', userData);
-
-      console.log("\n=================== API YANITI ===================");
-      console.log("✅ Durum Kodu:", response.status);
-      console.log("📄 Yanıt Verisi:", JSON.stringify(response.data, null, 2));
-      console.log("==================================================\n");
-
-      if (response.status === 200 || response.status === 201) {
-        setIsSubmitted(true);
-        Alert.alert("Başarılı", "Yönetici bilgileri kaydedildi.");
-      }
-    } catch (error) {
-      console.log("\n=================== HATA DETAYI ===================");
-      console.error("❌ Hata Türü:", error.name);
-      console.error("❌ Hata Mesajı:", error.message);
-      if (error.response) {
-        console.error("❌ Sunucu Yanıtı:", error.response.data);
-        console.error("❌ Durum Kodu:", error.response.status);
-      }
-      console.log("===================================================\n");
-
-      Alert.alert("Hata", "Yönetici bilgileri kaydedilirken bir hata oluştu.");
-    } finally {
-      setIsLoading(false);
-    }
+  const handleSubmit = () => {
+    // Doğrudan ApartmentInfo ekranına yönlendir
+    navigation.navigate('ApartmentInfo');
   };
 
   const isFormValid = firstName && lastName && email && phone && password;
 
+  const handleInputFocus = (inputPosition) => {
+    const scrollPosition = inputPosition * 60; // Her input için yaklaşık yükseklik
+    scrollViewRef.current?.scrollTo({
+      y: scrollPosition,
+      animated: true
+    });
+  };
+
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={Gradients.indigo[0]} />
+      
+      {/* Sabit Header */}
+      <LinearGradient
+        colors={Gradients.indigo}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerGradient}
+      >
+        <View style={styles.headerContent}>
+          <View style={styles.animationContainer}>
+            <LottieView 
+              source={animate} 
+              autoPlay 
+              loop 
+              style={styles.animation}
+            />
+          </View>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>Yönetici Bilgileri</Text>
+            <Text style={styles.headerSubtitle}>Yeni yönetici hesabı oluştur</Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      {/* Kaydırılabilir İçerik */}
+      <KeyboardAvoidingView 
+        style={styles.contentContainer} 
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
+      >
         <ScrollView 
-          contentContainerStyle={styles.innerContainer} 
+          ref={scrollViewRef}
+          contentContainerStyle={styles.scrollViewContent}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={true}
         >
-          <View style={styles.headerContainer}>
-            <LottieView source={animate} autoPlay loop style={styles.animation} />
+          <View style={styles.formContent}>
+            <View style={styles.inputWrapper}>
+              <View style={styles.inputContainer}>
+                <View style={styles.iconWrapper}>
+                  <MaterialIcons name="person" size={20} color={Colors.primary} />
+                </View>
+                <PaperInput
+                  mode="outlined"
+                  label="Ad"
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  style={styles.input}
+                  outlineColor="#E2E8F0"
+                  activeOutlineColor={Colors.primary}
+                  theme={{ colors: { background: '#F8FAFC' }}}
+                  onFocus={() => handleInputFocus(0)}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <View style={styles.iconWrapper}>
+                  <MaterialIcons name="person-outline" size={20} color={Colors.primary} />
+                </View>
+                <PaperInput
+                  mode="outlined"
+                  label="Soyad"
+                  value={lastName}
+                  onChangeText={setLastName}
+                  style={styles.input}
+                  outlineColor="#E2E8F0"
+                  activeOutlineColor={Colors.primary}
+                  theme={{ colors: { background: '#F8FAFC' }}}
+                  onFocus={() => handleInputFocus(1)}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <View style={styles.iconWrapper}>
+                  <MaterialIcons name="email" size={20} color={Colors.primary} />
+                </View>
+                <PaperInput
+                  mode="outlined"
+                  label="E-posta"
+                  value={email}
+                  onChangeText={setEmail}
+                  style={styles.input}
+                  outlineColor="#E2E8F0"
+                  activeOutlineColor={Colors.primary}
+                  theme={{ colors: { background: '#F8FAFC' }}}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  onFocus={() => handleInputFocus(2)}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <View style={styles.iconWrapper}>
+                  <MaterialIcons name="phone" size={20} color={Colors.primary} />
+                </View>
+                <PaperInput
+                  mode="outlined"
+                  label="Telefon Numarası"
+                  value={phone}
+                  onChangeText={setPhone}
+                  style={styles.input}
+                  outlineColor="#E2E8F0"
+                  activeOutlineColor={Colors.primary}
+                  theme={{ colors: { background: '#F8FAFC' }}}
+                  keyboardType="phone-pad"
+                  onFocus={() => handleInputFocus(3)}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <View style={styles.iconWrapper}>
+                  <MaterialIcons name="lock" size={20} color={Colors.primary} />
+                </View>
+                <PaperInput
+                  mode="outlined"
+                  label="Şifre"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  style={styles.input}
+                  outlineColor="#E2E8F0"
+                  activeOutlineColor={Colors.primary}
+                  theme={{ colors: { background: '#F8FAFC' }}}
+                  onFocus={() => handleInputFocus(4)}
+                />
+              </View>
+            </View>
+
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.submitButton}
+                onPress={handleSubmit}
+              >
+                <Text style={styles.submitButtonText}>
+                  Apartman Bilgilerine Geç
+                </Text>
+                <MaterialIcons name="arrow-forward" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.submitButton, { marginTop: 10, backgroundColor: '#4F46E5' }]}
+                onPress={() => navigation.navigate('FinancialInfo')}
+              >
+                <Text style={styles.submitButtonText}>
+                  Finansal Bilgilere Geç
+                </Text>
+                <MaterialIcons name="arrow-forward" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
+              </TouchableOpacity>
+            </View>
           </View>
-
-          <View style={styles.formContainer}>
-            <Text style={styles.title}>Yönetici Bilgileri</Text>
-
-            <View style={styles.inputContainer}>
-              <MaterialIcons
-                name="person"
-                size={24}
-                color={colors.primary}
-                style={styles.icon}
-              />
-              <PaperInput
-                mode="outlined"
-                label="Ad"
-                value={firstName}
-                onChangeText={setFirstName}
-                style={styles.input}
-                outlineColor={colors.darkGray}
-                activeOutlineColor={colors.primary}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <MaterialIcons
-                name="person-outline"
-                size={24}
-                color={colors.primary}
-                style={styles.icon}
-              />
-              <PaperInput
-                mode="outlined"
-                label="Soyad"
-                value={lastName}
-                onChangeText={setLastName}
-                style={styles.input}
-                outlineColor={colors.darkGray}
-                activeOutlineColor={colors.primary}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <MaterialIcons
-                name="email"
-                size={24}
-                color={colors.primary}
-                style={styles.icon}
-              />
-              <PaperInput
-                mode="outlined"
-                label="E-posta"
-                value={email}
-                onChangeText={setEmail}
-                style={styles.input}
-                outlineColor={colors.darkGray}
-                activeOutlineColor={colors.primary}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <MaterialIcons
-                name="phone"
-                size={24}
-                color={colors.primary}
-                style={styles.icon}
-              />
-              <PaperInput
-                mode="outlined"
-                label="Telefon Numarası"
-                value={phone}
-                onChangeText={setPhone}
-                style={styles.input}
-                outlineColor={colors.darkGray}
-                activeOutlineColor={colors.primary}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <MaterialIcons
-                name="lock"
-                size={24}
-                color={colors.primary}
-                style={styles.icon}
-              />
-              <PaperInput
-                mode="outlined"
-                label="Şifre"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                style={styles.input}
-                outlineColor={colors.darkGray}
-                activeOutlineColor={colors.primary}
-              />
-            </View>
-          </View>
-
-          <View style={styles.submitButtonContainer}>
-            <TouchableOpacity
-              style={[
-                styles.submitButton,
-                isSubmitted && styles.submittedButton,
-                (!isFormValid || isLoading) && styles.disabledButton
-              ]}
-              onPress={handleSubmit}
-              disabled={!isFormValid || isLoading || isSubmitted}
-            >
-              <Text style={[
-                styles.submitButtonText,
-                (!isFormValid || isLoading) && styles.disabledButtonText
-              ]}>
-                {isLoading 
-                  ? "Gönderiliyor..." 
-                  : isSubmitted 
-                    ? "Kaydedildi (1/4)" 
-                    : "Kaydet"
-                }
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <View style={{ height: 50 }} />
         </ScrollView>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
   },
-  innerContainer: {
-    flexGrow: 1,
-    justifyContent: "space-between",
+  headerGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 280,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    zIndex: 1,
   },
-  headerContainer: {
-    justifyContent: "center",
-    alignItems: "center",
-    paddingTop: Platform.OS === "ios" ? 50 : 30,
-    marginTop: 60,
+  contentContainer: {
+    flex: 1,
+    marginTop: 260,
+  },
+  scrollViewContent: {
+    paddingTop: 20,
+  },
+  headerContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  animationContainer: {
+    width: 140,
+    height: 140,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 70,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   animation: {
-    width: 200,
-    height: 200,
-    position: "relative",
+    width: 120,
+    height: 120,
   },
-  formContainer: {
-    flex: 1,
+  headerTextContainer: {
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontFamily: Fonts.urbanist.bold,
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    fontFamily: Fonts.urbanist.medium,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  formContent: {
     padding: 20,
+    backgroundColor: '#FFFFFF',
   },
-  title: {
-    fontSize: 26,
-    fontWeight: "bold",
-    color: colors.black,
-    textAlign: "center",
+  inputWrapper: {
+    gap: 16,
+    marginBottom: 24,
   },
   inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 15,
-    width: "100%",
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  icon: {
-    marginRight: 10,
+  iconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EBF5FB',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   input: {
     flex: 1,
-    backgroundColor: colors.white,
-    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    fontSize: 14,
+    fontFamily: Fonts.urbanist.medium,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   submitButton: {
-    backgroundColor: colors.primary,
-    padding: 15,
-    borderRadius: 8,
-    alignItems: "center",
-    width: '80%',
+    backgroundColor: Colors.primary,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   submitButtonText: {
-    color: colors.white,
-    fontWeight: "bold",
+    color: '#FFFFFF',
     fontSize: 16,
-  },
-  submitButtonContainer: {
-    flex: 1,
-    justifyContent: "flex-end",
-    alignItems: "center",
-    marginBottom: 20,
-    paddingBottom: 20,
-  },
-  submittedContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  submittedButton: {
-    backgroundColor: colors.success,
-  },
-  disabledButton: {
-    backgroundColor: colors.gray,
-    opacity: 0.7,
-  },
-  disabledButtonText: {
-    color: colors.darkGray,
+    fontFamily: Fonts.urbanist.bold,
   },
 });
 
