@@ -17,6 +17,7 @@ import {
   ActivityIndicator,
   StatusBar,
   Dimensions,
+  Image,
 } from "react-native";
 import axios from "axios";
 import colors from "../../../styles/colors";
@@ -24,13 +25,18 @@ import { TextInput as PaperInput, Button as PaperButton } from "react-native-pap
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_ENDPOINTS, axiosConfig } from '../../../config/apiConfig';
-import { supabase } from '../../../config/supabaseClient';
+import * as ImagePicker from 'expo-image-picker';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { v4 as uuidv4 } from 'uuid';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Gradients } from '../../../constants/Colors';
 import Fonts from '../../../constants/Fonts';
 import LottieView from 'lottie-react-native';
-import animate from "../../../assets/json/animApartment.json";  
+import animate from "../../../assets/json/animApartment.json";
+import { storage } from '../../../config/firebaseConfig';
+import { imageService } from '../../../services/firebaseService';
+import { auth } from '../../../config/firebaseConfig';
+import 'react-native-get-random-values'; // UUID için gerekli
 
 
 // API URL'lerini güncelle
@@ -179,6 +185,8 @@ const ApartmentInfoScreen = ({ navigation }) => {
     internet: false
   });
   const [showBuildingFeatures, setShowBuildingFeatures] = useState(false);
+  const [images, setImages] = useState([]);
+  const [uploading, setUploading] = useState(false);
 
   const scrollViewRef = useRef(null);
 
@@ -925,6 +933,9 @@ const ApartmentInfoScreen = ({ navigation }) => {
           </View>
         </View>
 
+        {/* Fotoğraf Yükleme Bölümü */}
+        {renderPhotoUploadSection()}
+
         <TouchableOpacity
           style={styles.submitButton}
           onPress={handleSubmit}
@@ -1617,10 +1628,10 @@ const ApartmentInfoScreen = ({ navigation }) => {
       >
         <View style={styles.headerContent}>
           <View style={styles.animationContainer}>
-            <LottieView 
-              source={animate} 
-              autoPlay 
-              loop 
+            <LottieView
+              source={animate}
+              autoPlay
+              loop
               style={styles.animation}
             />
           </View>
@@ -2084,109 +2095,1477 @@ const ApartmentInfoScreen = ({ navigation }) => {
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={Gradients.indigo[0]} />
-      
-      {/* Sabit Header */}
-      <LinearGradient
-        colors={Gradients.indigo}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerGradient}
-      >
-        <View style={styles.headerContent}>
-          <View style={[styles.animationContainer, { height: 120, width: 120 }]}>
-            <LottieView 
-              source={animate} 
-              autoPlay 
-              loop 
-              style={styles.animation}
-            />
-          </View>
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>Bina Bilgileri</Text>
-            <Text style={styles.headerSubtitle}>
-              {apartments.length > 0 
-                ? `${apartments.length} bina kayıtlı`
-                : 'Henüz bina eklemediniz'}
-            </Text>
-          </View>
-        </View>
-      </LinearGradient>
+  // Fotoğraf seçme fonksiyonu
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
 
-      {/* Kaydırılabilir İçerik */}
+      if (!result.canceled) {
+        setImages(prevImages => [...prevImages, result.assets[0].uri]);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Hata', 'Fotoğraf seçilirken bir hata oluştu.');
+    }
+  };
+
+  // Fotoğraf yükleme fonksiyonu
+  const uploadImages = async () => {
+    if (images.length === 0) return;
+
+    setUploading(true);
+
+    try {
+      for (const imageUri of images) {
+        try {
+          console.log('Starting upload for image:', imageUri);
+          
+          // Resmi blob'a çevir
+          const response = await fetch(imageUri);
+          const blob = await response.blob();
+          console.log('Image converted to blob, size:', blob.size);
+          
+          // Benzersiz dosya adı oluştur
+          const timestamp = new Date().getTime();
+          const random = Math.floor(Math.random() * 10000);
+          const fileName = `apartments/temp/${timestamp}_${random}.jpg`;
+          
+          console.log('Creating storage reference for:', fileName);
+          const storageRef = ref(storage, fileName);
+
+          // Metadata ekle
+          const metadata = {
+            contentType: 'image/jpeg',
+            customMetadata: {
+              'uploadedBy': 'temp',
+              'timestamp': timestamp.toString()
+            }
+          };
+
+          console.log('Uploading blob to Firebase Storage...');
+          await uploadBytes(storageRef, blob, metadata);
+          
+          console.log('Getting download URL...');
+          const downloadURL = await getDownloadURL(storageRef);
+          console.log('Download URL received:', downloadURL);
+
+          const imageData = {
+            contentType: 'image/jpeg',
+            fileName: fileName,
+            path: fileName,
+            size: blob.size,
+            type: 'image',
+            url: downloadURL,
+            timestamp: new Date()
+          };
+
+          console.log('Saving image data to Firestore...');
+          await imageService.addImage('temp', imageData);
+          console.log('Image data saved successfully');
+
+        } catch (error) {
+          console.error('Error processing image:', error);
+          console.error('Error code:', error.code);
+          console.error('Error message:', error.message);
+          console.error('Error stack:', error.stack);
+          
+          if (error.code === 'storage/unauthorized') {
+            Alert.alert('Yetkilendirme Hatası', 'Firebase Storage\'a erişim yetkiniz yok. Lütfen yönetici ile iletişime geçin.');
+          } else if (error.code === 'storage/canceled') {
+            Alert.alert('İptal Edildi', 'Fotoğraf yükleme işlemi iptal edildi.');
+          } else if (error.code === 'storage/unknown') {
+            Alert.alert('Bağlantı Hatası', 'Firebase Storage\'a bağlanırken bir hata oluştu. Lütfen internet bağlantınızı kontrol edin.');
+          } else {
+            Alert.alert('Hata', `Fotoğraf yüklenirken bir hata oluştu: ${error.message}`);
+          }
+          throw error;
+        }
+      }
+
+      Alert.alert('Başarılı', 'Fotoğraflar başarıyla yüklendi.');
+      setImages([]);
+
+    } catch (error) {
+      console.error('Error in uploadImages:', error);
+      Alert.alert('Hata', 'Fotoğraflar yüklenirken bir hata oluştu. Lütfen tekrar deneyin.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeImage = async (index) => {
+    try {
+      const imageToDelete = images[index];
+      
+      // Eğer resim zaten yüklendiyse, Firestore ve Storage'dan sil
+      if (imageToDelete.startsWith('https://')) {
+        const fileName = imageToDelete.split('/').pop().split('?')[0];
+        
+        // Firestore'dan resmi bul ve sil
+        const userImages = await imageService.getUserImages(auth.currentUser.uid);
+        const imageToRemove = userImages.data.find(img => img.fileName === fileName);
+        
+        if (imageToRemove) {
+          await imageService.deleteImage(auth.currentUser.uid, imageToRemove.id);
+        }
+        
+        // Storage'dan sil
+        const storageRef = ref(storage, `apartments/${fileName}`);
+        await deleteObject(storageRef);
+      }
+
+      // State'den sil
+      setImages(prevImages => prevImages.filter((_, i) => i !== index));
+      
+    } catch (error) {
+      console.error('Error removing image:', error);
+      Alert.alert('Hata', 'Fotoğraf silinirken bir hata oluştu.');
+    }
+  };
+
+  // Fotoğraf yükleme bölümünü render et
+  const renderPhotoUploadSection = () => (
+    <View style={styles.formSection}>
+      <Text style={styles.sectionTitle}>Bina Fotoğrafları</Text>
+      <Text style={styles.sectionSubtitle}>Binanın dış ve iç fotoğraflarını ekleyin</Text>
+
+      <View style={styles.photoGrid}>
+        {images.map((uri, index) => (
+          <View key={index} style={styles.photoContainer}>
+            <Image source={{ uri }} style={styles.photo} />
+            <TouchableOpacity
+              style={styles.removePhotoButton}
+              onPress={() => removeImage(index)}
+            >
+              <MaterialIcons name="close" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        ))}
+
+        {images.length < 5 && (
+          <TouchableOpacity
+            style={styles.addPhotoButton}
+            onPress={pickImage}
+            disabled={uploading}
+          >
+            <MaterialIcons name="add-photo-alternate" size={32} color={Colors.primary} />
+            <Text style={styles.addPhotoText}>Fotoğraf Ekle</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {images.length > 0 && (
+        <TouchableOpacity
+          style={[styles.uploadButton, uploading && styles.uploadButtonDisabled]}
+          onPress={uploadImages}
+          disabled={uploading}
+        >
+          {uploading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <>
+              <MaterialIcons name="cloud-upload" size={24} color="#FFFFFF" />
+              <Text style={styles.uploadButtonText}>Fotoğrafları Yükle</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView 
-        style={styles.contentContainer} 
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
+        enabled
       >
-        <ScrollView 
+        <ScrollView
           ref={scrollViewRef}
-          contentContainerStyle={styles.scrollViewContent}
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          bounces={true}
         >
           {showApartmentDetails ? (
             renderApartmentDetails()
           ) : showBuildingFeatures ? (
-            renderBuildingFeatures()
+            <View style={styles.formContainer}>
+              <LinearGradient
+                colors={Gradients.indigo}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.formHeaderGradient}
+              >
+                <View style={styles.formHeaderContent}>
+                  <Text style={styles.formHeaderTitle}>Bina Özellikleri</Text>
+                  <Text style={styles.formHeaderSubtitle}>Lütfen bina özelliklerini belirleyin</Text>
+                </View>
+              </LinearGradient>
+              {renderBuildingFeatures()}
+              <TouchableOpacity
+                style={styles.submitButton}
+                onPress={handleFeaturesSave}
+              >
+                <Text style={styles.submitButtonText}>Kaydet ve Devam Et</Text>
+                <MaterialIcons name="arrow-forward" size={24} color="#FFFFFF" style={{ marginLeft: 8 }} />
+              </TouchableOpacity>
+            </View>
           ) : showForm ? (
             renderApartmentForm()
           ) : (
             renderNoApartmentMessage()
           )}
         </ScrollView>
-      </KeyboardAvoidingView>
 
-      {/* Finans ekranına geçiş butonu */}
-      <TouchableOpacity
-        style={styles.financeButton}
-        onPress={() => {
-          navigation.navigate('AdminCreate', {
-            screen: 'FinancialInfo'
-          });
-        }}
-      >
-        <LinearGradient
-          colors={['#6366F1', '#4F46E5']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.financeButtonGradient}
+        {/* Finans ekranına geçiş butonu */}
+        <TouchableOpacity
+          style={styles.financeButton}
+          onPress={() => {
+            navigation.navigate('AdminCreate', {
+              screen: 'FinancialInfo'
+            });
+          }}
         >
-          <Text style={styles.financeButtonText}>Finansal Bilgilere Geç</Text>
-          <MaterialIcons name="arrow-forward" size={24} color="#FFFFFF" style={{ marginLeft: 8 }} />
-        </LinearGradient>
-      </TouchableOpacity>
-    </View>
+          <LinearGradient
+            colors={['#6366F1', '#4F46E5']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.financeButtonGradient}
+          >
+            <Text style={styles.financeButtonText}>Finansal Bilgilere Geç</Text>
+            <MaterialIcons name="arrow-forward" size={24} color="#FFFFFF" style={{ marginLeft: 8 }} />
+          </LinearGradient>
+        </TouchableOpacity>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.white,
+  },
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  headerGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 280,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: Platform.OS === 'ios' ? 100 : 90,
+  },
+  headerContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 60 : 30,
+  },
+  animation: {
+    width: 200,
+    height: 200,
+  },
+  titleContainer: {
+    paddingVertical: 10,
+    paddingHorizontal: 30,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: "bold",
+    color: colors.primary,
+    textAlign: "center",
+  },
+  formContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  formHeaderGradient: {
+    paddingVertical: 20,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    zIndex: 1,
   },
-  contentContainer: {
+  formHeaderContent: {
+    paddingHorizontal: 20,
+  },
+  formHeaderTitle: {
+    fontSize: 24,
+    fontFamily: Fonts.urbanist.bold,
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  formHeaderSubtitle: {
+    fontSize: 14,
+    fontFamily: Fonts.urbanist.medium,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  formContent: {
+    padding: 20,
+  },
+  formSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: Fonts.urbanist.semiBold,
+    color: '#1E293B',
+    marginBottom: 16,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  iconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EBF5FB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  input: {
     flex: 1,
-    marginTop: 260,
+    backgroundColor: '#F8FAFC',
+    fontSize: 14,
+    fontFamily: Fonts.urbanist.medium,
   },
-  scrollViewContent: {
-    paddingTop: 20,
+  submitButton: {
+    backgroundColor: Colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 24,
   },
-  // ... diğer stiller aynı kalacak ...
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: Fonts.urbanist.bold,
+  },
+  listContainer: {
+    flex: 1,
+    padding: 16,
+  },
+  apartmentCard: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 3,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  cardHeaderLeft: {
+    flex: 1,
+  },
+  cardHeaderRight: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  buildingName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 4,
+  },
+  address: {
+    fontSize: 14,
+    color: colors.darkGray,
+    marginBottom: 2,
+  },
+  editButton: {
+    padding: 8,
+    backgroundColor: colors.lightBlue,
+    borderRadius: 8,
+  },
+  deleteButton: {
+    padding: 8,
+    backgroundColor: colors.lightRed,
+    borderRadius: 8,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    color: colors.darkGray,
+    marginLeft: 8,
+  },
+  cardFooter: {
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.lightGray,
+    paddingTop: 12,
+  },
+  detailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  detailsButtonText: {
+    fontSize: 14,
+    color: colors.primary,
+    marginRight: 4,
+    fontWeight: '500',
+  },
+  detailsContainer: {
+    flex: 1,
+    marginVertical: 10,
+    marginHorizontal: 20,
+    padding: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 1.84,
+    elevation: 5,
+  },
+  detailsTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: colors.black,
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  unitCard: {
+    borderRadius: 10,
+    padding: 15,
+   
+    width: 330,
+  },
+  unitHeader: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  unitTitle: {
+    fontSize: 21,
+    fontWeight: "bold",
+    color: colors.black,
+  },
+  counterContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    marginBottom: 10,
+  },
+  counterLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 16,
+    color: colors.darkGray,
+  },
+  counterButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.textPrimary,
+    borderRadius: 8,
+  },
+  counterButton: {
+    width: 30,
+    height: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: colors.white,
+    borderRadius: 15,
+    opacity: 1,
+  },
+  counterButtonText: {
+    fontSize: 18,
+    color: colors.primary,
+    fontWeight: "bold",
+  },
+  counterValue: {
+    marginHorizontal: 5,
+    fontSize: 14,
+    fontWeight: "normal",
+    color: colors.primary,
+  },
+  dropdownContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dropdownLabel: {
+    fontSize: 16,
+    color: colors.darkGray,
+  },
+  dropdown: {
+    borderColor: colors.primary,
+    borderRadius: 5,
+  },
+  dropdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: colors.white,
+  },
+  typeSelectionContainer: {
+    padding: 15,
+  },
+  typeButtonsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'center',
+  },
+  typeButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.white,
+    opacity: (props) => props.disabled ? 0.5 : 1,
+  },
+  selectedTypeButton: {
+    backgroundColor: colors.primary,
+  },
+  typeButtonText: {
+    color: colors.primary,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  selectedTypeButtonText: {
+    color: colors.white,
+  },
+  unitSelectorContainer: {
+    padding: 15,
+  },
+  quickSelectContainer: {
+    marginBottom: 15,
+  },
+  quickSelectTitle: {
+    fontSize: 16,
+    marginBottom: 10,
+    color: colors.darkGray,
+  },
+  quickSelectButton: {
+    marginRight: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    backgroundColor: colors.lightGray,
+  },
+  quickSelectButtonText: {
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  unitsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'center',
+    marginVertical: 20,
+  },
+  unitButton: {
+    width: 60,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.white,
+  },
+  selectedUnitButton: {
+    backgroundColor: colors.primary,
+  },
+  alreadySetUnit: {
+    borderColor: colors.success,
+    backgroundColor: colors.lightGreen,
+  },
+  unitButtonText: {
+    color: colors.primary,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  selectedUnitButtonText: {
+    color: colors.white,
+  },
+  existingTypeText: {
+    fontSize: 12,
+    color: colors.success,
+    marginTop: 2,
+  },
+  bulkInputContainer: {
+    padding: 15,
+    borderRadius: 8,
+  },
+  selectedCountText: {
+    fontSize: 16,
+    color: colors.primary,
+    marginBottom: 10,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  bulkInput: {
+    backgroundColor: colors.white,
+    marginBottom: 10,
+  },
+  updateButton: {
+    marginTop: 10,
+    backgroundColor: colors.primary,
+  },
+
+  stepsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 15,
+    borderRadius: 8,
+    marginBottom: 20,
+    elevation: 2,
+  },
+  stepItem: {
+    flex: 1,
+    flexWrap: 'wrap',
+    flexDirection: 'row',
+    gap: 5,
+  },
+  stepTitle: {
+    fontSize: 14,
+    color: colors.darkGray,
+  },
+  completedUnitButton: {
+    borderColor: colors.success,
+    backgroundColor: colors.lightGreen,
+  },
+  inactiveUnitButton: {
+    opacity: 0.5,
+    backgroundColor: colors.lightGray,
+  },
+  navigationButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+  },
+  navButton: {
+    flex: 1,
+    marginHorizontal: 5,
+  },
+  primaryButton: {
+    backgroundColor: colors.primary,
+  },
+  completedUnitButtonText: {
+    color: colors.success,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  unitTypeText: {
+    fontSize: 12,
+    color: colors.success,
+    marginTop: 2,
+  },
+  stepsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 15,
+    borderRadius: 8,
+    marginBottom: 20,
+    elevation: 2,
+  },
+  stepItem: {
+    flex: 1,
+    flexWrap: 'wrap',
+
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 5,
+  },
+  stepTitle: {
+    fontSize: 14,
+    color: colors.darkGray,
+  },
+  completedUnitButton: {
+    borderColor: colors.success,
+    backgroundColor: colors.lightGreen,
+  },
+  inactiveUnitButton: {
+    opacity: 0.5,
+    backgroundColor: colors.lightGray,
+  },
+  navigationButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+  },
+  navButton: {
+    flex: 1,
+    marginHorizontal: 5,
+  },
+  primaryButton: {
+    backgroundColor: colors.primary,
+  },
+  completedUnitButtonText: {
+    color: colors.success,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  unitTypeText: {
+    fontSize: 12,
+    color: colors.success,
+    marginTop: 2,
+  },
+  inputHeader: {
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  inputTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 5,
+  },
+  remainingText: {
+    fontSize: 14,
+    color: colors.darkGray,
+  },
+  amountInputContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  amountInput: {
+    backgroundColor: colors.white,
+  },
+  notesInputContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  notesInput: {
+    backgroundColor: colors.white,
+    height: 100,
+  },
+  unitAmountText: {
+    fontSize: 12,
+    color: colors.success,
+    marginTop: 2,
+  },
+  applyButton: {
+    marginTop: 20,
+    marginHorizontal: 20,
+    backgroundColor: colors.primary,
+  },
+  floorContainer: {
+    padding: 15,
+   
+
+    borderRadius: 10,
+    marginVertical: 10,
+    marginHorizontal: 20,
+   
+  },
+  floorsGrid: {
+    padding: 10,
+  },
+  floorUnits: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'center',
+    padding: 15,
+  },
+  unitButton: {
+    width: 60,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.white,
+  },
+  balconyUnitButton: {
+    backgroundColor: colors.lightGreen,
+    borderColor: colors.success,
+  },
+  balconyUnitText: {
+    color: colors.success,
+  },
+  unitDetailText: {
+    fontSize: 10,
+    color: colors.darkGray,
+    marginTop: 2,
+  },
+  selectedFloorRow: {
+    backgroundColor: colors.lightBlue,
+    borderColor: colors.primary,
+    borderWidth: 1,
+  },
+  selectedFloorNumber: {
+    color: colors.primary,
+    fontWeight: 'bold',
+  },
+  unitFloorText: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    fontSize: 10,
+    color: colors.darkGray,
+    backgroundColor: colors.lightGray,
+    padding: 2,
+    borderRadius: 4,
+  },
+  floorSelectorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 15,
+    padding: 10,
+  },
+  floorArrowButton: {
+    padding: 10,
+  },
+  currentFloorContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    marginHorizontal: 10,
+    minWidth: 120,
+    alignItems: 'center',
+  },
+  currentFloorText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  addBasementButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: colors.lightBlue,
+    marginLeft: 10,
+  },
+  addBasementText: {
+    marginLeft: 5,
+    color: colors.primary,
+    fontSize: 12,
+  },
+  resetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: colors.lightRed,
+    alignSelf: 'center',
+    marginTop: 10,
+  },
+  resetButtonText: {
+    marginLeft: 5,
+    color: colors.error,
+    fontSize: 12,
+  },
+  basementSelectorContainer: {
+    position: 'absolute',
+    right: 40,
+    top: 45,
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    padding: 15,
+    elevation: 4,
+    minWidth: 120,
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  basementSelectorTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  basementOptionButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 4,
+    marginVertical: 2,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  selectedBasementButton: {
+    backgroundColor: colors.primary,
+  },
+  basementOptionText: {
+    color: colors.primary,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  selectedBasementText: {
+    color: colors.white,
+  },
+  addBasementButton: {
+    padding: 5,
+    marginLeft: 5,
+    backgroundColor: colors.lightBlue,
+    borderRadius: 20,
+    width: 34,
+    height: 34,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  disabledButton: {
+    opacity: 0.5,
+    backgroundColor: colors.lightGray,
+  },
+  confirmBasementButton: {
+    marginTop: 10,
+    backgroundColor: colors.primary,
+  },
+  listContent: {
+    paddingBottom: 20,
+  },
+  listTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 15,
+    marginLeft: 15,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  headerInfo: {
+    flex: 1,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  editButton: {
+    padding: 8,
+    backgroundColor: colors.lightBlue,
+    borderRadius: 8,
+  },
+  deleteButton: {
+    padding: 8,
+    backgroundColor: colors.lightRed,
+    borderRadius: 8,
+  },
+  cardContent: {
+    gap: 12,
+  },
+  utilityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.lightGreen,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    gap: 4,
+  },
+  utilityText: {
+    fontSize: 12,
+    color: colors.success,
+  },
+  unitsSection: {
+    marginBottom: 20,
+  },
+  unitsScrollView: {
+    marginTop: 8,
+  },
+  unitSummary: {
+    marginRight: 10,
+    padding: 10,
+    borderRadius: 5,
+    backgroundColor: colors.white,
+    elevation: 2,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  unitNumber: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  unitType: {
+    fontSize: 14,
+    color: colors.success,
+    marginTop: 2,
+  },
+  unitFloor: {
+    fontSize: 12,
+    color: colors.darkGray,
+    marginTop: 2,
+  },
+  unitRent: {
+    fontSize: 12,
+    color: colors.success,
+    marginTop: 2,
+  },
+  unitDeposit: {
+    fontSize: 12,
+    color: colors.success,
+    marginTop: 2,
+  },
+  balconyIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 5,
+  },
+  balconyText: {
+    fontSize: 12,
+    color: colors.success,
+    marginTop: 2,
+  },
+  unitNotes: {
+    fontSize: 12,
+    color: colors.darkGray,
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  stepsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap', // Satır sonunda alt satıra geçmesi için
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    gap: 8, // Adımlar arası boşluk
+  },
+  stepItemCompleted: {
+    backgroundColor: colors.lightBlue, // Tamamlanan adımlar için arka plan
+  },
+  stepIcon: {
+    marginRight: 4,
+    color: colors.darkGray, // Tamamlanmamış adımlar için
+  },
+  stepIconCompleted: {
+    color: colors.primary, // Tamamlanan adımlar için
+  },
+  stepText: {
+    fontSize: 12, // Yazı boyutunu küçült
+    color: colors.darkGray,
+    fontWeight: '500',
+  },
+  stepTextCompleted: {
+    color: colors.primary, // Tamamlanan adımlar için
+  },
+  // Seçili kat için
+  selectedFloorButton: {
+    backgroundColor: "#4A90E2", // Orta mavi
+  },
+  // Seçili olmayan katlar için
+  floorButton: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#4A90E2",
+  },
+  // Kat numarası text rengi
+  floorButtonText: {
+    color: "#4A90E2", // Normal durumda
+  },
+  selectedFloorButtonText: {
+    color: "#FFFFFF", // Seçili durumda
+  },
+  featuresContainer: {
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: colors.white,
+    borderRadius: 10,
+    elevation: 2,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingRight: 10, // Switch için sağ tarafta boşluk bırak
+  },
+  featureLabel: {
+    fontSize: 16,
+    color: colors.darkGray,
+    flex: 1,
+  },
+  featureControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end', // Sağa hizala
+    flex: 1,
+    gap: 15, // Switch ile radio butonlar arası mesafe
+  },
+  radioGroupContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginRight: 10, // Switch'ten önce boşluk bırak
+  },
+  radioGroup: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  radioButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  radioButtonSelected: {
+    backgroundColor: colors.primary,
+  },
+  radioText: {
+    color: colors.primary,
+    fontSize: 14,
+  },
+  radioTextSelected: {
+    color: colors.white,  // Seçili durumda metin rengi beyaz
+  },
+  switchGroup: {
+    marginTop: 10,
+  },
+  ageInput: {
+    width: 80,
+    height: 40,
+    backgroundColor: colors.white,
+  },
+  datePickerContainer: {
+    alignItems: 'flex-end',
+  },
+  datePickerButton: {
+    backgroundColor: colors.white,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  datePickerButtonText: {
+    color: colors.primary,
+    fontSize: 14,
+  },
+  buildingAgeText: {
+    fontSize: 12,
+    color: colors.darkGray,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  iosDatePickerContainer: {
+    backgroundColor: colors.white,
+    borderRadius: 10,
+    overflow: 'hidden',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+  },
+  iosDatePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.lightGray,
+  },
+  iosDatePickerButtonText: {
+    color: colors.primary,
+    fontSize: 16,
+  },
+  confirmText: {
+    fontWeight: 'bold',
+  },
+  buildingFeaturesContainer: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  featureSection: {
+    marginBottom: 24,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 16,
+  },
+  featureHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  featureIcon: {
+    marginRight: 12,
+  },
+  featureTitle: {
+    fontSize: 18,
+    fontFamily: Fonts.urbanist.semiBold,
+    color: Colors.text.primary,
+  },
+  heatingOptionsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  heatingOptionButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F1F5F9',
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  heatingOptionButtonSelected: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  heatingOptionText: {
+    fontSize: 14,
+    fontFamily: Fonts.urbanist.medium,
+    color: Colors.text.primary,
+    textAlign: 'center',
+  },
+  heatingOptionTextSelected: {
+    color: '#FFFFFF',
+  },
+  selectedIndicator: {
+    width: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonContainer: {
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  saveFeatureButton: {
+    backgroundColor: Colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    width: '60%',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  saveFeatureButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: Fonts.urbanist.bold,
+  },
+  headerGradient: {
+    height: 280,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  animationContainer: {
+    width: 120,
+    height: 120,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  animation: {
+    width: 200,
+    height: 200,
+  },
+  headerTextContainer: {
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontFamily: Fonts.urbanist.bold,
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    fontFamily: Fonts.urbanist.medium,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  emptyContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 48,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  addButton: {
+    position: 'absolute',
+    right: 24,
+    bottom: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  financeButton: {
+    position: 'absolute',
+    bottom: 24,
+    left: 24,
+    right: 24,
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  financeButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+  },
+  financeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: Fonts.urbanist.bold,
+  },
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 16,
+  },
+  photoContainer: {
+    width: (Dimensions.get('window').width - 72) / 3,
+    height: (Dimensions.get('window').width - 72) / 3,
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  photo: {
+    width: '100%',
+    height: '100%',
+  },
+  removePhotoButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addPhotoButton: {
+    width: (Dimensions.get('window').width - 72) / 3,
+    height: (Dimensions.get('window').width - 72) / 3,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+  },
+  addPhotoText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: Colors.primary,
+    fontFamily: Fonts.urbanist.medium,
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  uploadButtonDisabled: {
+    opacity: 0.7,
+  },
+  uploadButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: Fonts.urbanist.bold,
+    marginLeft: 8,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: Colors.text.secondary,
+    marginTop: 4,
+    fontFamily: Fonts.urbanist.regular,
+  },
 });
 
 export default ApartmentInfoScreen;

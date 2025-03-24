@@ -86,35 +86,10 @@ const AdminInfoScreen = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <>
       <StatusBar barStyle="light-content" backgroundColor={Gradients.indigo[0]} />
-      
-      {/* Sabit Header */}
-      <LinearGradient
-        colors={Gradients.indigo}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerGradient}
-      >
-        <View style={styles.headerContent}>
-          <View style={styles.animationContainer}>
-            <LottieView 
-              source={animate} 
-              autoPlay 
-              loop 
-              style={styles.animation}
-            />
-          </View>
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>Yönetici Bilgileri</Text>
-            <Text style={styles.headerSubtitle}>Yeni yönetici hesabı oluştur</Text>
-          </View>
-        </View>
-      </LinearGradient>
-
-      {/* Kaydırılabilir İçerik */}
       <KeyboardAvoidingView 
-        style={styles.contentContainer} 
+        style={styles.container} 
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
       >
@@ -125,6 +100,31 @@ const AdminInfoScreen = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
           bounces={true}
         >
+          <LinearGradient
+            colors={Gradients.indigo}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.headerGradient}
+          >
+            <View style={styles.headerContent}>
+              <View style={[styles.animationContainer, { height: 120, width: 120 }]}>
+                <LottieView 
+                  source={animate} 
+                  autoPlay 
+                  loop 
+                  style={styles.animation}
+                />
+              </View>
+              <View style={styles.headerTextContainer}>
+                <View style={styles.iconContainer}>
+                  <MaterialIcons name="admin-panel-settings" size={24} color="#FFFFFF" />
+                </View>
+                <Text style={styles.headerTitle}>Yönetici Bilgileri</Text>
+                <Text style={styles.headerSubtitle}>Yeni yönetici hesabı oluştur</Text>
+              </View>
+            </View>
+          </LinearGradient>
+
           <View style={styles.formContent}>
             <View style={styles.inputWrapper}>
               <View style={styles.inputContainer}>
@@ -242,7 +242,7 @@ const AdminInfoScreen = ({ navigation }) => {
           <View style={{ height: 50 }} />
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </>
   );
 };
 
@@ -251,53 +251,53 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+  scrollViewContent: {
+    flexGrow: 1,
+  },
   headerGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 280,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 30,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    zIndex: 1,
-  },
-  contentContainer: {
-    flex: 1,
-    marginTop: 260,
-  },
-  scrollViewContent: {
-    paddingTop: 20,
   },
   headerContent: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
   },
   animationContainer: {
     width: 140,
     height: 140,
+    marginBottom: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 70,
+    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
   },
   animation: {
-    width: 120,
-    height: 120,
+    width: 100,
+    height: 100,
   },
   headerTextContainer: {
     alignItems: 'center',
+    marginTop: 10,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontFamily: Fonts.urbanist.bold,
     color: '#FFFFFF',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   headerSubtitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: Fonts.urbanist.medium,
     color: 'rgba(255, 255, 255, 0.8)',
   },
