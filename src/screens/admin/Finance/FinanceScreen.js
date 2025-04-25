@@ -214,22 +214,22 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
         >
           <View style={styles.drawerHeader}>
             <View style={styles.drawerHeaderContent}>
-              <MaterialCommunityIcons name="filter-variant" size={24} color={Colors.text} />
+              <MaterialCommunityIcons name="filter-variant" size={24} color={Colors.background} />
               <Text style={styles.drawerTitle}>Filtreler</Text>
             </View>
             <IconButton
               icon="close"
               size={24}
-              iconColor={Colors.text}
+              iconColor={Colors.background}
               onPress={onDismiss}
             />
           </View>
           
-          <ScrollView style={styles.drawerBody}>
+          <View style={styles.drawerBody}>
             {/* Date Range Section */}
             <View style={styles.filterSection}>
               <View style={styles.sectionHeader}>
-                <MaterialCommunityIcons name="calendar-range" size={22} color={Colors.text} />
+                <MaterialCommunityIcons name="calendar-range" size={22} color={Colors.background} />
                 <Text style={styles.sectionTitle}>Tarih Aralığı</Text>
               </View>
               <View style={styles.dateContainer}>
@@ -237,17 +237,17 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
                   style={styles.dateButton}
                   onPress={() => setShowStartDate(true)}
                 >
-                  <MaterialCommunityIcons name="calendar-start" size={20} color={Colors.text} />
+                  <MaterialCommunityIcons name="calendar-start" size={20} color={Colors.background} />
                   <Text style={styles.dateButtonText}>
                     {localFilters.startDate.toLocaleDateString('tr-TR')}
                   </Text>
                 </TouchableOpacity>
-                <MaterialCommunityIcons name="arrow-right" size={20} color={Colors.text} />
+                <MaterialCommunityIcons name="arrow-right" size={20} color={Colors.background} />
                 <TouchableOpacity
                   style={styles.dateButton}
                   onPress={() => setShowEndDate(true)}
                 >
-                  <MaterialCommunityIcons name="calendar-end" size={20} color={Colors.text} />
+                  <MaterialCommunityIcons name="calendar-end" size={20} color={Colors.background} />
                   <Text style={styles.dateButtonText}>
                     {localFilters.endDate.toLocaleDateString('tr-TR')}
                   </Text>
@@ -291,14 +291,8 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
               )}
             </View>
 
-            <Divider style={styles.divider} />
-
-            {/* Location Section */}
+            {/* Apartment Number Input */}
             <View style={styles.filterSection}>
-              <View style={styles.sectionHeader}>
-                <MaterialCommunityIcons name="map-marker" size={22} color={Colors.text} />
-                <Text style={styles.sectionTitle}>Lokasyon</Text>
-              </View>
               <TextInput
                 mode="outlined"
                 label="Daire No"
@@ -316,20 +310,18 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
               />
             </View>
 
-            <Divider style={styles.divider} />
-
             {/* Payment Type Section */}
             <View style={styles.filterSection}>
               <View style={styles.sectionHeader}>
-                <MaterialCommunityIcons name="cash-multiple" size={22} color={Colors.text} />
+                <MaterialCommunityIcons name="cash-multiple" size={22} color={Colors.background} />
                 <Text style={styles.sectionTitle}>Ödeme Tipi</Text>
               </View>
               <View style={styles.chipGrid}>
                 {[
-                  { label: 'Nakit', icon: 'cash', color: '#22C55E' },
-                  { label: 'Kredi Kartı', icon: 'credit-card', color: '#6366F1' },
-                  { label: 'Havale/EFT', icon: 'bank-transfer', color: '#8B5CF6' },
-                  { label: 'Diğer', icon: 'dots-horizontal', color: '#F59E0B' }
+                  { label: 'Nakit', icon: 'cash', color: Colors.success },
+                  { label: 'Kredi Kartı', icon: 'credit-card', color: Colors.primary },
+                  { label: 'Havale/EFT', icon: 'bank-transfer', color: Colors.secondary },
+                  { label: 'Diğer', icon: 'dots-horizontal', color: Colors.warning }
                 ].map((type) => (
                   <Chip
                     key={type.label}
@@ -343,7 +335,7 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
                       localFilters.paymentType === type.label && { backgroundColor: type.color }
                     ]}
                     textStyle={{
-                      color: localFilters.paymentType === type.label ? '#FFFFFF' : Colors.text
+                      color: localFilters.paymentType === type.label ? '#FFFFFF' : Colors.background
                     }}
                     icon={() => (
                       <MaterialCommunityIcons
@@ -359,19 +351,17 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
               </View>
             </View>
 
-            <Divider style={styles.divider} />
-
             {/* Payment Status Section */}
             <View style={styles.filterSection}>
               <View style={styles.sectionHeader}>
-                <MaterialCommunityIcons name="checkbox-marked-circle" size={22} color={Colors.text} />
+                <MaterialCommunityIcons name="checkbox-marked-circle" size={22} color={Colors.background} />
                 <Text style={styles.sectionTitle}>Ödeme Durumu</Text>
               </View>
               <View style={styles.chipGrid}>
                 {[
-                  { label: 'Bekleyen', icon: 'clock', color: '#F59E0B' },
-                  { label: 'Tamamlandı', icon: 'check-circle', color: '#22C55E' },
-                  { label: 'İptal', icon: 'close-circle', color: '#EF4444' }
+                  { label: 'Bekleyen', icon: 'clock', color: Colors.warning },
+                  { label: 'Tamamlandı', icon: 'check-circle', color: Colors.success },
+                  { label: 'İptal', icon: 'close-circle', color: Colors.error }
                 ].map((status) => (
                   <Chip
                     key={status.label}
@@ -385,7 +375,7 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
                       localFilters.paymentStatus === status.label && { backgroundColor: status.color }
                     ]}
                     textStyle={{
-                      color: localFilters.paymentStatus === status.label ? '#FFFFFF' : Colors.text
+                      color: localFilters.paymentStatus === status.label ? '#FFFFFF' : Colors.background
                     }}
                     icon={() => (
                       <MaterialCommunityIcons
@@ -401,19 +391,17 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
               </View>
             </View>
 
-            <Divider style={styles.divider} />
-
             {/* Sort Section */}
             <View style={styles.filterSection}>
               <View style={styles.sectionHeader}>
-                <MaterialCommunityIcons name="sort" size={22} color={Colors.text} />
+                <MaterialCommunityIcons name="sort" size={22} color={Colors.background} />
                 <Text style={styles.sectionTitle}>Sıralama</Text>
               </View>
               <View style={styles.chipGrid}>
                 {[
-                  { label: 'Tarihe Göre', value: 'date', icon: 'calendar', color: '#6366F1' },
-                  { label: 'Tutara Göre', value: 'amount', icon: 'cash', color: '#22C55E' },
-                  { label: 'Gecikmeye Göre', value: 'delay', icon: 'clock-alert', color: '#EF4444' }
+                  { label: 'Tarihe Göre', value: 'date', icon: 'calendar', color: Colors.primary },
+                  { label: 'Tutara Göre', value: 'amount', icon: 'cash', color: Colors.success },
+                  { label: 'Gecikmeye Göre', value: 'delay', icon: 'clock-alert', color: Colors.warning }
                 ].map((sort) => (
                   <Chip
                     key={sort.value}
@@ -427,7 +415,7 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
                       localFilters.sortBy === sort.value && { backgroundColor: sort.color }
                     ]}
                     textStyle={{
-                      color: localFilters.sortBy === sort.value ? '#FFFFFF' : Colors.text
+                      color: localFilters.sortBy === sort.value ? '#FFFFFF' : Colors.background
                     }}
                     icon={() => (
                       <MaterialCommunityIcons
@@ -441,26 +429,8 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
                   </Chip>
                 ))}
               </View>
-              <View style={styles.sortDirectionContainer}>
-                <Button
-                  mode={localFilters.sortDirection === 'asc' ? 'contained' : 'outlined'}
-                  onPress={() => setLocalFilters(prev => ({ ...prev, sortDirection: 'asc' }))}
-                  icon="sort-ascending"
-                  style={styles.sortButton}
-                >
-                  Artan
-                </Button>
-                <Button
-                  mode={localFilters.sortDirection === 'desc' ? 'contained' : 'outlined'}
-                  onPress={() => setLocalFilters(prev => ({ ...prev, sortDirection: 'desc' }))}
-                  icon="sort-descending"
-                  style={styles.sortButton}
-                >
-                  Azalan
-                </Button>
-              </View>
             </View>
-          </ScrollView>
+          </View>
 
           <View style={styles.drawerFooter}>
             <Button
@@ -489,7 +459,19 @@ const FilterDrawer = ({ visible, onDismiss, filters, setFilters, onApply }) => {
 const OverduePaymentsList = ({ navigation, overduePayments = [] }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
+  const [reminderModalVisible, setReminderModalVisible] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState(null);
   const itemsPerPage = 5;
+
+  const handleReminder = (payment) => {
+    // Bildirim gönderme fonksiyonu kaldırıldı
+    console.log('Bildirim gönderme özelliği kaldırıldı');
+  };
+
+  const sendReminder = (method) => {
+    // Bildirim gönderme fonksiyonu kaldırıldı
+    console.log('Bildirim gönderme özelliği kaldırıldı');
+  };
 
   const filteredPayments = overduePayments.filter(payment => {
     const searchLower = searchQuery.toLowerCase();
@@ -507,267 +489,302 @@ const OverduePaymentsList = ({ navigation, overduePayments = [] }) => {
 
   const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
 
-  const renderPaymentItem = ({ item }) => (
-    <Surface 
-      style={[styles.overduePaymentItem, { 
-        backgroundColor: '#FFFFFF',
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        width: '100%',
-        marginHorizontal: 0
-      }]} 
-    >
-      <View style={styles.overduePaymentContent}>
-        {/* Header - Tenant Info & Status */}
-        <View style={styles.overduePaymentHeader}>
-          <View style={styles.tenantInfoContainer}>
-            <View style={[styles.statusIconContainer, {
-              backgroundColor: '#F1F5F9',
-              padding: 8,
-              borderRadius: 10
-            }]}>
-              <MaterialCommunityIcons name="clock-alert" size={24} color="#1BA74B" />
-            </View>
-            <View style={styles.tenantDetails}>
-              <Text style={[styles.tenantName, { 
-                fontSize: 16,
-                color: '#0F172A',
-                fontWeight: 'bold'
-              }]}>{item.tenantName}</Text>
-              <Text style={[styles.apartmentInfo, { 
-                fontSize: 13,
-                color: '#64748B'
-              }]}>{`${item.buildingName} - Daire ${item.apartmentNumber}`}</Text>
-            </View>
-          </View>
-          <View style={[styles.delayBadge, {
-            backgroundColor: '#FEF2F2',
-            paddingHorizontal: 10,
-            paddingVertical: 4,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: '#FEE2E2'
-          }]}>
-            <Text style={{
-              fontSize: 12,
-              fontWeight: 'bold',
-              color: '#EF4444'
-            }}>{`${item.delayedDays} Gün Gecikme`}</Text>
-          </View>
-        </View>
-
-        {/* Payment Details */}
-        <View style={[styles.paymentDetailsContainer, {
-          backgroundColor: '#F8FAFC',
-          padding: 10,
-          borderRadius: 12,
-          marginVertical: 6,
-          borderWidth: 1,
-          borderColor: '#E2E8F0'
-        }]}>
-          <View style={styles.paymentDetail}>
-            <MaterialCommunityIcons name="cash" size={14} color="#64748B" />
-            <Text style={[styles.paymentLabel, { color: '#64748B', fontSize: 13 }]}>Toplam Tutar:</Text>
-            <Text style={[styles.paymentAmount, { color: '#0F172A', fontWeight: 'bold', fontSize: 13 }]}>
-              {item.totalAmount.toLocaleString('tr-TR')}₺
-            </Text>
-          </View>
-          
-          <View style={styles.paymentDetail}>
-            <MaterialCommunityIcons name="alert-circle" size={14} color="#EF4444" />
-            <Text style={[styles.paymentLabel, { color: '#64748B', fontSize: 13 }]}>Ceza Tutarı:</Text>
-            <Text style={[styles.paymentAmount, { color: '#EF4444', fontWeight: 'bold', fontSize: 13 }]}>
-              +{item.penaltyAmount.toLocaleString('tr-TR')}₺
-            </Text>
-          </View>
-        </View>
-
-        {/* Action Buttons */}
-        <View style={styles.actionButtonsContainer}>
-          <TouchableOpacity 
-            style={[styles.actionButton, {
-              backgroundColor: '#DCF5E8',
-              borderWidth: 1,
-              borderColor: '#DCF5E8',
-              padding: 8,
-              borderRadius: 8,
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: 6
-            }]}
-          >
-            <MaterialCommunityIcons name="phone" size={14} color="#1B874B" />
-            <Text style={[styles.actionButtonText, { color: '#1B874B', marginLeft: 4, fontSize: 11 }]}>Ara</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.actionButton, {
-              backgroundColor: '#DCF5E8',
-              borderWidth: 1,
-              borderColor: '#DCF5E8',
-              padding: 8,
-              borderRadius: 8,
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: 6
-            }]}
-          >
-            <MaterialCommunityIcons name="email" size={14} color="#1B874B" />
-            <Text style={[styles.actionButtonText, { color: '#1B874B', marginLeft: 4, fontSize: 11 }]}>E-posta</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.actionButton, {
-              backgroundColor: '#FEF2F2',
-              borderWidth: 1,
-              borderColor: '#FEE2E2',
-              padding: 8,
-              borderRadius: 8,
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }]}
-          >
-            <MaterialCommunityIcons name="bell" size={14} color="#EF4444" />
-            <Text style={[styles.actionButtonText, { color: '#EF4444', marginLeft: 4, fontSize: 11 }]}>Hatırlat</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Surface>
-  );
-
   return (
-    <Card style={[styles.sectionCardNew]} elevation={2}>
-      <LinearGradient
-        colors={Gradients.indigo}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{
-          borderRadius: 16,
-        }}
-      >
-        <Card.Title 
-          title="Geciken Ödemeler" 
-          titleStyle={[styles.sectionTitleNew, { color: '#FFFFFF' }]}
-          subtitle={`Toplam: ${filteredPayments.length}`}
-          subtitleStyle={[styles.sectionSubtitleNew, { color: 'rgba(255,255,255,0.8)' }]}
-          left={(props) => (
-            <View style={[styles.sectionIconContainerNew, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
-              <MaterialCommunityIcons {...props} name="clock-alert" size={24} color="#FFFFFF" />
-            </View>
-          )}
-          right={(props) => (
-            <IconButton
-              {...props}
-              icon="filter-variant"
-              iconColor="#FFFFFF"
-              size={24}
-              onPress={() => setFilterModalVisible(true)}
-              style={{ marginRight: 8 }}
-            />
-          )}
-        />
-        <Card.Content style={{ padding: 0 }}>
-          {/* Payments List */}
-          <FlatList
-            data={paginatedPayments}
-            renderItem={renderPaymentItem}
-            keyExtractor={(item) => item.paymentId.toString()}
-            scrollEnabled={false}
-            contentContainerStyle={[styles.listContainerNew, { paddingHorizontal: 0 }]}
-            ListEmptyComponent={() => (
-              <View style={styles.emptyListContainer}>
-                <MaterialCommunityIcons name="check-circle" size={48} color="#22C55E" />
-                <Text style={styles.emptyListText}>Geciken ödeme bulunmuyor</Text>
+    <>
+      <Card style={[styles.sectionCardNew]} elevation={2}>
+        <LinearGradient
+          colors={Gradients.indigo}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            borderRadius: 16,
+          }}
+        >
+          <Card.Title 
+            title="Geciken Ödemeler" 
+            titleStyle={[styles.sectionTitleNew, { color: '#FFFFFF' }]}
+            subtitle={`Toplam: ${filteredPayments.length}`}
+            subtitleStyle={[styles.sectionSubtitleNew, { color: 'rgba(255,255,255,0.8)' }]}
+            left={(props) => (
+              <View style={[styles.sectionIconContainerNew, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                <MaterialCommunityIcons {...props} name="clock-alert" size={24} color="#FFFFFF" />
               </View>
             )}
           />
+          <Card.Content style={{ padding: 0 }}>
+            {/* Payments List */}
+            <FlatList
+              data={paginatedPayments}
+              renderItem={({ item }) => (
+                <Surface 
+                  style={[styles.overduePaymentItem, { 
+                    backgroundColor: '#FFFFFF',
+                    elevation: 2,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.05,
+                    shadowRadius: 4,
+                    borderWidth: 1,
+                    borderColor: '#E2E8F0',
+                    width: '100%',
+                    marginHorizontal: 0
+                  }]} 
+                >
+                  <View style={styles.overduePaymentContent}>
+                    {/* Header - Tenant Info & Status */}
+                    <View style={styles.overduePaymentHeader}>
+                      <View style={styles.tenantInfoContainer}>
+                        <View style={[styles.statusIconContainer, {
+                          backgroundColor: '#F1F5F9',
+                          padding: 8,
+                          borderRadius: 10
+                        }]}>
+                          <MaterialCommunityIcons name="clock-alert" size={24} color="#1BA74B" />
+                        </View>
+                        <View style={styles.tenantDetails}>
+                          <Text style={[styles.tenantName, { 
+                            fontSize: 16,
+                            color: '#0F172A',
+                            fontWeight: 'bold'
+                          }]}>{item.tenantName}</Text>
+                          <Text style={[styles.apartmentInfo, { 
+                            fontSize: 13,
+                            color: '#64748B'
+                          }]}>{`${item.buildingName} - Daire ${item.apartmentNumber}`}</Text>
+                        </View>
+                      </View>
+                      <View style={[styles.delayBadge, {
+                        backgroundColor: '#FEF2F2',
+                        paddingHorizontal: 10,
+                        paddingVertical: 4,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: '#FEE2E2'
+                      }]}>
+                        <Text style={{
+                          fontSize: 12,
+                          fontWeight: 'bold',
+                          color: '#EF4444'
+                        }}>{`${item.delayedDays} Gün Gecikme`}</Text>
+                      </View>
+                    </View>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <View style={styles.paginationContainerNew}>
-              <TouchableOpacity 
-                onPress={() => setPage(1)}
-                disabled={page === 1}
-                style={[
-                  styles.pageButtonNew,
-                  page === 1 && styles.pageButtonDisabledNew
-                ]}
-              >
-                <MaterialCommunityIcons 
-                  name="chevron-double-left" 
-                  size={18} 
-                  color={page === 1 ? '#94A3B8' : '#EF4444'} 
-                />
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                onPress={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                style={[
-                  styles.pageButtonNew,
-                  page === 1 && styles.pageButtonDisabledNew
-                ]}
-              >
-                <MaterialCommunityIcons 
-                  name="chevron-left" 
-                  size={18} 
-                  color={page === 1 ? '#94A3B8' : '#EF4444'} 
-                />
-              </TouchableOpacity>
+                    {/* Payment Details */}
+                    <View style={[styles.paymentDetailsContainer, {
+                      backgroundColor: '#F8FAFC',
+                      padding: 10,
+                      borderRadius: 12,
+                      marginVertical: 6,
+                      borderWidth: 1,
+                      borderColor: '#E2E8F0'
+                    }]}>
+                      <View style={styles.paymentDetail}>
+                        <MaterialCommunityIcons name="cash" size={14} color="#64748B" />
+                        <Text style={[styles.paymentLabel, { color: '#64748B', fontSize: 13 }]}>Toplam Tutar:</Text>
+                        <Text style={[styles.paymentAmount, { color: '#0F172A', fontWeight: 'bold', fontSize: 13 }]}>
+                          {item.totalAmount.toLocaleString('tr-TR')}₺
+                        </Text>
+                      </View>
+                      
+                      <View style={styles.paymentDetail}>
+                        <MaterialCommunityIcons name="alert-circle" size={14} color="#EF4444" />
+                        <Text style={[styles.paymentLabel, { color: '#64748B', fontSize: 13 }]}>Ceza Tutarı:</Text>
+                        <Text style={[styles.paymentAmount, { color: '#EF4444', fontWeight: 'bold', fontSize: 13 }]}>
+                          +{item.penaltyAmount.toLocaleString('tr-TR')}₺
+                        </Text>
+                      </View>
+                    </View>
 
-              <View style={styles.paginationSeparator} />
-              
-              <Text style={styles.paginationInfoText}>
-                Sayfa {page} / {totalPages}
-              </Text>
+                    {/* Action Buttons */}
+                    <View style={styles.actionButtonsContainer}>
+                      <TouchableOpacity 
+                        style={[styles.actionButton, {
+                          backgroundColor: '#DCF5E8',
+                          borderWidth: 1,
+                          borderColor: '#DCF5E8',
+                          padding: 8,
+                          borderRadius: 8,
+                          flex: 1,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginRight: 6
+                        }]}
+                      >
+                        <MaterialCommunityIcons name="phone" size={14} color="#1B874B" />
+                        <Text style={[styles.actionButtonText, { color: '#1B874B', marginLeft: 4, fontSize: 11 }]}>Ara</Text>
+                      </TouchableOpacity>
 
-              <View style={styles.paginationSeparator} />
+                      <TouchableOpacity 
+                        style={[styles.actionButton, {
+                          backgroundColor: '#DCF5E8',
+                          borderWidth: 1,
+                          borderColor: '#DCF5E8',
+                          padding: 8,
+                          borderRadius: 8,
+                          flex: 1,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginRight: 6
+                        }]}
+                      >
+                        <MaterialCommunityIcons name="email" size={14} color="#1B874B" />
+                        <Text style={[styles.actionButtonText, { color: '#1B874B', marginLeft: 4, fontSize: 11 }]}>E-posta</Text>
+                      </TouchableOpacity>
 
-              <TouchableOpacity 
-                onPress={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                style={[
-                  styles.pageButtonNew,
-                  page === totalPages && styles.pageButtonDisabledNew
-                ]}
-              >
-                <MaterialCommunityIcons 
-                  name="chevron-right" 
-                  size={18} 
-                  color={page === totalPages ? '#94A3B8' : '#EF4444'} 
-                />
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                onPress={() => setPage(totalPages)}
-                disabled={page === totalPages}
-                style={[
-                  styles.pageButtonNew,
-                  page === totalPages && styles.pageButtonDisabledNew
-                ]}
-              >
-                <MaterialCommunityIcons 
-                  name="chevron-double-right" 
-                  size={18} 
-                  color={page === totalPages ? '#94A3B8' : '#EF4444'} 
-                />
-              </TouchableOpacity>
-            </View>
-          )}
-        </Card.Content>
-      </LinearGradient>
-    </Card>
+                      <TouchableOpacity 
+                        style={[styles.actionButton, {
+                          backgroundColor: '#FEF2F2',
+                          borderWidth: 1,
+                          borderColor: '#FEE2E2',
+                          padding: 8,
+                          borderRadius: 8,
+                          flex: 1,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }]}
+                        onPress={() => handleReminder(item)}
+                      >
+                        <MaterialCommunityIcons name="bell" size={14} color="#EF4444" />
+                        <Text style={[styles.actionButtonText, { color: '#EF4444', marginLeft: 4, fontSize: 11 }]}>Hatırlat</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </Surface>
+              )}
+              keyExtractor={(item) => item.paymentId.toString()}
+              scrollEnabled={false}
+              contentContainerStyle={[styles.listContainerNew, { paddingHorizontal: 0 }]}
+              ListEmptyComponent={() => (
+                <View style={styles.emptyListContainer}>
+                  <MaterialCommunityIcons name="check-circle" size={48} color="#22C55E" />
+                  <Text style={styles.emptyListText}>Geciken ödeme bulunmuyor</Text>
+                </View>
+              )}
+            />
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <View style={styles.paginationContainerNew}>
+                <TouchableOpacity 
+                  onPress={() => setPage(1)}
+                  disabled={page === 1}
+                  style={[
+                    styles.pageButtonNew,
+                    page === 1 && styles.pageButtonDisabledNew
+                  ]}
+                >
+                  <MaterialCommunityIcons 
+                    name="chevron-double-left" 
+                    size={18} 
+                    color={page === 1 ? '#94A3B8' : '#EF4444'} 
+                  />
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  onPress={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  style={[
+                    styles.pageButtonNew,
+                    page === 1 && styles.pageButtonDisabledNew
+                  ]}
+                >
+                  <MaterialCommunityIcons 
+                    name="chevron-left" 
+                    size={18} 
+                    color={page === 1 ? '#94A3B8' : '#EF4444'} 
+                  />
+                </TouchableOpacity>
+
+                <View style={styles.paginationSeparator} />
+                
+                <Text style={styles.paginationInfoText}>
+                  Sayfa {page} / {totalPages}
+                </Text>
+
+                <View style={styles.paginationSeparator} />
+
+                <TouchableOpacity 
+                  onPress={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  style={[
+                    styles.pageButtonNew,
+                    page === totalPages && styles.pageButtonDisabledNew
+                  ]}
+                >
+                  <MaterialCommunityIcons 
+                    name="chevron-right" 
+                    size={18} 
+                    color={page === totalPages ? '#94A3B8' : '#EF4444'} 
+                  />
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  onPress={() => setPage(totalPages)}
+                  disabled={page === totalPages}
+                  style={[
+                    styles.pageButtonNew,
+                    page === totalPages && styles.pageButtonDisabledNew
+                  ]}
+                >
+                  <MaterialCommunityIcons 
+                    name="chevron-double-right" 
+                    size={18} 
+                    color={page === totalPages ? '#94A3B8' : '#EF4444'} 
+                  />
+                </TouchableOpacity>
+              </View>
+            )}
+          </Card.Content>
+        </LinearGradient>
+      </Card>
+
+      {/* Reminder Modal */}
+      <Portal>
+        <Modal
+          visible={reminderModalVisible}
+          onDismiss={() => setReminderModalVisible(false)}
+          contentContainerStyle={styles.reminderModal}
+        >
+          <Text style={styles.reminderModalTitle}>Hatırlatma Gönder</Text>
+          <Text style={styles.reminderModalSubtitle}>
+            {selectedPayment?.tenantName} - Daire {selectedPayment?.apartmentNumber}
+          </Text>
+          <View style={styles.reminderOptions}>
+            <TouchableOpacity
+              style={styles.reminderOption}
+              onPress={() => sendReminder('SMS')}
+            >
+              <MaterialCommunityIcons name="message-text" size={24} color="#1B874B" />
+              <Text style={styles.reminderOptionText}>SMS</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.reminderOption}
+              onPress={() => sendReminder('Email')}
+            >
+              <MaterialCommunityIcons name="email" size={24} color="#1B874B" />
+              <Text style={styles.reminderOptionText}>E-posta</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.reminderOption}
+              onPress={() => sendReminder('Push')}
+            >
+              <MaterialCommunityIcons name="bell" size={24} color="#1B874B" />
+              <Text style={styles.reminderOptionText}>Push Bildirim</Text>
+            </TouchableOpacity>
+          </View>
+          <Button
+            mode="outlined"
+            onPress={() => setReminderModalVisible(false)}
+            style={styles.reminderModalButton}
+          >
+            İptal
+          </Button>
+        </Modal>
+      </Portal>
+    </>
   );
 };
 
@@ -777,69 +794,6 @@ const FinanceScreen = ({ navigation }) => {
   const [data, setData] = useState(null);
   const [selectedBuilding, setSelectedBuilding] = useState(null);
   
-  // Filter States
-  const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [filters, setFilters] = useState({
-    startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
-    endDate: new Date(),
-    buildingId: null,
-    apartmentId: null,
-    paymentType: null,
-    paymentStatus: null,
-    isOverdueOnly: false,
-    sortBy: 'date',
-    sortDirection: 'desc',
-    pageNumber: 1,
-    pageSize: 10
-  });
-
-  // Date picker states
-  const [showStartDate, setShowStartDate] = useState(false);
-  const [showEndDate, setShowEndDate] = useState(false);
-
-  // Date picker handlers
-  const onStartDateChange = (event, selectedDate) => {
-    setShowStartDate(false);
-    if (selectedDate) {
-      setFilters(prev => ({
-        ...prev,
-        startDate: selectedDate
-      }));
-    }
-  };
-
-  const onEndDateChange = (event, selectedDate) => {
-    setShowEndDate(false);
-    if (selectedDate) {
-      setFilters(prev => ({
-        ...prev,
-        endDate: selectedDate
-      }));
-    }
-  };
-
-  const handleFilterApply = async () => {
-    setFilterModalVisible(false);
-    setSelectedBuilding(filters.buildingId);
-    await fetchFinanceData();
-  };
-
-  const handleFilterReset = () => {
-    setFilters({
-      startDate: new Date(new Date().setMonth(new Date().getMonth() - 1)),
-      endDate: new Date(),
-      buildingId: null,
-      apartmentId: null,
-      paymentType: null,
-      paymentStatus: null,
-      isOverdueOnly: false,
-      sortBy: 'date',
-      sortDirection: 'desc',
-      pageNumber: 1,
-      pageSize: 10
-    });
-  };
-
   const fetchFinanceData = async (buildingId = null) => {
     try {
       setLoading(true);
@@ -848,39 +802,11 @@ const FinanceScreen = ({ navigation }) => {
       // Construct query parameters
       const params = new URLSearchParams();
       
-      // Date filters
-      if (filters.startDate) {
-        params.append('startDate', filters.startDate.toISOString().split('T')[0]);
-      }
-      if (filters.endDate) {
-        params.append('endDate', filters.endDate.toISOString().split('T')[0]);
-      }
-
       // Location filters
-      if (buildingId || filters.buildingId) {
-        params.append('buildingId', buildingId || filters.buildingId);
-      }
-      if (filters.apartmentId) {
-        params.append('apartmentId', filters.apartmentId);
-      }
-
-      // Payment filters
-      if (filters.paymentType) {
-        params.append('paymentType', filters.paymentType);
-      }
-      if (filters.paymentStatus) {
-        params.append('paymentStatus', filters.paymentStatus);
-      }
-      if (filters.isOverdueOnly) {
-        params.append('isOverdueOnly', true);
+      if (buildingId) {
+        params.append('buildingId', buildingId);
       }
       
-      // Sorting and pagination
-      params.append('sortBy', filters.sortBy);
-      params.append('sortDirection', filters.sortDirection);
-      params.append('pageNumber', filters.pageNumber);
-      params.append('pageSize', filters.pageSize);
-
       const queryString = params.toString();
       if (queryString) {
         endpoint += `?${queryString}`;
@@ -977,7 +903,7 @@ const FinanceScreen = ({ navigation }) => {
 
   const renderStatisticsCards = () => (
     <Animatable.View animation="fadeInUp" delay={300} style={styles.statisticsContainer}>
-      <Text style={[styles.sectionTitle, { color: Colors.text }]}>Genel İstatistikler</Text>
+      <Text style={[styles.sectionTitle, { marginBottom: 10, color: Colors.text }]}>Genel İstatistikler</Text>
       <View style={styles.statisticsGrid}>
         <Card style={[styles.statisticsCard, { overflow: 'hidden', backgroundColor: 'transparent', width: (width - 40) / 2 }]}>
           <LinearGradient
@@ -1069,7 +995,7 @@ const FinanceScreen = ({ navigation }) => {
                 setSelectedBuilding(item.buildingId);
                 fetchFinanceData(item.buildingId);
               }}
-              style={{ marginRight: 12 }}
+             
             >
               <Animatable.View
                 animation="fadeIn"
@@ -1110,96 +1036,22 @@ const FinanceScreen = ({ navigation }) => {
     );
   };
 
-  const renderPaymentDistribution = () => {
-    // API yanıtını kontrol etmek için log
-    console.log('Payment Distribution Data:', statistics?.paymentTypeDistribution);
-
-    // Veri yapısını kontrol et ve dönüştür
-    let paymentData = [];
-    if (statistics?.paymentTypeDistribution) {
-      if (Array.isArray(statistics.paymentTypeDistribution)) {
-        // Eğer bir array ise direkt kullan
-        paymentData = statistics.paymentTypeDistribution;
-      } else if (typeof statistics.paymentTypeDistribution === 'object') {
-        // Eğer bir obje ise array'e çevir
-        paymentData = Object.entries(statistics.paymentTypeDistribution).map(([type, amount]) => ({
-          type,
-          amount: Number(amount)
-        }));
-      }
-    }
-
-    if (!paymentData.length) {
-      return (
-        <Animatable.View animation="fadeInUp" delay={400} style={styles.paymentDistributionContainer}>
-          <Text style={styles.sectionTitle}>Ödeme Dağılımı</Text>
-          <Text style={styles.noDataText}>Henüz ödeme verisi bulunmuyor.</Text>
-        </Animatable.View>
-      );
-    }
-
-    const total = paymentData.reduce((sum, item) => sum + (item.amount || 0), 0);
-
-    const paymentTypeColors = {
-      'Nakit': '#22C55E',
-      'Kredi Kartı': '#6366F1',
-      'Havale/EFT': '#8B5CF6',
-      'Diğer': '#F59E0B'
-    };
-
-    const paymentTypeIcons = {
-      'Nakit': 'cash',
-      'Kredi Kartı': 'card',
-      'Havale/EFT': 'swap-horizontal',
-      'Diğer': 'wallet'
-    };
-
-    return (
-      <Animatable.View animation="fadeInUp" delay={400} style={styles.paymentDistributionContainer}>
-        <Text style={styles.sectionTitle}>Ödeme Dağılımı</Text>
-        <View style={styles.paymentTypesGrid}>
-          {paymentData.map((item) => (
-            <PaymentTypeCard
-              key={item.type}
-              title={item.type}
-              amount={item.amount}
-              total={total}
-              color={paymentTypeColors[item.type] || '#6366F1'}
-              icon={paymentTypeIcons[item.type] || 'wallet'}
-            />
-          ))}
-        </View>
-      </Animatable.View>
-    );
-  };
-
   const renderOverduePayments = () => (
-    <OverduePaymentsList 
-      navigation={navigation} 
-      overduePayments={overduePayments} 
-    />
+    <Animatable.View animation="fadeInUp" delay={400} style={styles.overdueContainer}>
+      <OverduePaymentsList 
+        navigation={navigation} 
+        overduePayments={overduePayments}
+      />
+    </Animatable.View>
   );
 
   return (
-    <>
-      <ScrollView style={[styles.container, { backgroundColor: Colors.background }]}>
-        {renderSummaryCard()}
-        {renderStatisticsCards()}
-        {renderBuildingsList()}
-        {renderPaymentDistribution()}
-        {renderOverduePayments()}
-      </ScrollView>
-      <FilterDrawer
-        visible={filterModalVisible}
-        onDismiss={() => setFilterModalVisible(false)}
-        filters={filters}
-        setFilters={setFilters}
-        onApply={() => {
-          setFilterModalVisible(false);
-          fetchFinanceData();
-        }}
-      />
-    </>
+    <ScrollView style={[styles.container, { backgroundColor: Colors.background }]}>
+      {renderSummaryCard()}
+      {renderStatisticsCards()}
+      {renderBuildingsList()}
+      {renderOverduePayments()}
+    </ScrollView>
   );
 };
 
@@ -1430,7 +1282,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: 2,
   },
   statisticsCard: {
     marginBottom: 8,
@@ -1453,17 +1305,17 @@ const styles = StyleSheet.create({
   },
   drawerOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     flexDirection: 'row',
     zIndex: 1000,
   },
   drawerBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   drawerContent: {
     width: '85%',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     height: '100%',
     position: 'absolute',
     right: 0,
@@ -1475,6 +1327,7 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.25,
     shadowRadius: 5,
+    paddingTop: 40,
   },
   drawerHeader: {
     flexDirection: 'row',
@@ -1486,6 +1339,11 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
     elevation: 2,
+    position: 'absolute',
+    top: 40,
+    left: 0,
+    right: 0,
+    zIndex: 1,
   },
   drawerHeaderContent: {
     flexDirection: 'row',
@@ -1495,26 +1353,33 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginLeft: 12,
-    color: Colors.text,
+    color: '#0F172A',
   },
   drawerBody: {
     flex: 1,
     backgroundColor: '#F8FAFC',
+    paddingTop: 100,
   },
   filterSection: {
-    padding: 16,
-    backgroundColor: '#FFFFFF',
+    padding: 12,
+    backgroundColor: '#F8FAFC',
     marginBottom: 1,
+    borderRadius: 8,
+    marginHorizontal: 8,
+    marginTop: 8,
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.text,
+    color: '#0F172A',
     marginLeft: 8,
   },
   dateContainer: {
@@ -1522,12 +1387,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
+    marginTop: 8,
   },
   dateButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC',
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
@@ -1535,7 +1401,7 @@ const styles = StyleSheet.create({
   },
   dateButtonText: {
     marginLeft: 8,
-    color: Colors.text,
+    color: '#0F172A',
     fontSize: 14,
   },
   input: {
@@ -1548,8 +1414,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   filterChip: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC',
     borderColor: '#E2E8F0',
+    minWidth: 100,
   },
   switchContainer: {
     flexDirection: 'row',
@@ -1564,7 +1431,7 @@ const styles = StyleSheet.create({
   switchLabel: {
     marginLeft: 8,
     fontSize: 16,
-    color: Colors.text,
+    color: '#0F172A',
   },
   sortDirectionContainer: {
     flexDirection: 'row',
@@ -1591,6 +1458,7 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: '#E2E8F0',
+    marginHorizontal: 8,
   },
   overduePaymentItem: {
     borderRadius: 12,
@@ -1656,6 +1524,8 @@ const styles = StyleSheet.create({
     margin: 16,
     borderRadius: 16,
     overflow: 'hidden',
+    width: width - 32,
+    alignSelf: 'center',
   },
   sectionTitleNew: {
     fontSize: 18,
@@ -1708,7 +1578,7 @@ const styles = StyleSheet.create({
   },
   paginationInfoText: {
     fontSize: 14,
-    color: '#666',
+    color: '#0F172A',
   },
   buildingsHeader: {
     flexDirection: 'row',
@@ -1728,8 +1598,42 @@ const styles = StyleSheet.create({
   },
   clearFilterText: {
     fontSize: 14,
-    color: Colors.text,
+    color: '#0F172A',
     marginLeft: 4,
+  },
+  reminderModal: {
+    backgroundColor: 'white',
+    padding: 20,
+    margin: 20,
+    borderRadius: 8,
+  },
+  reminderModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    marginBottom: 8,
+  },
+  reminderModalSubtitle: {
+    fontSize: 16,
+    color: '#64748B',
+    marginBottom: 20,
+  },
+  reminderOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 20,
+  },
+  reminderOption: {
+    alignItems: 'center',
+    padding: 10,
+  },
+  reminderOptionText: {
+    marginTop: 8,
+    color: '#0F172A',
+    fontSize: 14,
+  },
+  reminderModalButton: {
+    marginTop: 10,
   },
 });
 

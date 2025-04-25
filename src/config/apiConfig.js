@@ -1,8 +1,21 @@
 // Base URL'i tanımla
-export const API_BASE_URL = "https://14e3-78-190-184-129.ngrok-free.app/api";
+export const API_BASE_URL = "https://ff67-78-187-59-29.ngrok-free.app/api";
 
-// Admin ID yönetimi için global değişken ve yönetim fonksiyonları
-let currentAdminId = 4;
+// Axios instance oluştur
+import axios from 'axios';
+
+export const api = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  }
+});
+
+// Admin ID ve User ID yönetimi için global değişkenler ve yönetim fonksiyonları
+let currentAdminId = null;
+let currentUserId = null;
 
 export const setCurrentAdminId = (adminId) => {
     currentAdminId = adminId;
@@ -12,14 +25,22 @@ export const getCurrentAdminId = () => {
     return currentAdminId;
 };
 
+export const setCurrentUserId = (userId) => {
+    currentUserId = userId;
+};
+
+export const getCurrentUserId = () => {
+    return currentUserId;
+};
+
 // Endpoint'leri kategorilere ayırarak tanımla
 export const API_ENDPOINTS = {
     // Auth endpoints
     AUTH: {
         LOGIN: `${API_BASE_URL}/User/login`,
         REGISTER: `${API_BASE_URL}/Auth/register`,
-        FORGOT_PASSWORD: `${API_BASE_URL}/Auth/forgot-password`,
-        RESET_PASSWORD: `${API_BASE_URL}/Auth/reset-password`,
+        FORGOT_PASSWORD: `${API_BASE_URL}/User/reset-password`,
+        RESET_PASSWORD: `${API_BASE_URL}/User/reset-password`,
         VERIFY_EMAIL: `${API_BASE_URL}/Auth/verify-email`,
         REFRESH_TOKEN: `${API_BASE_URL}/Auth/refresh-token`,
         CHANGE_PASSWORD: `${API_BASE_URL}/Auth/change-password`,
@@ -127,7 +148,7 @@ export const API_ENDPOINTS = {
     COMPLAINT: {
         BASE: `${API_BASE_URL}/Complaint`,
         GET_ALL: `${API_BASE_URL}/Complaint`,
-        CREATE: `${API_BASE_URL}/Complaint`,
+        CREATE: `${API_BASE_URL}/Tenant/complaints`,
         DETAIL: (id) => `${API_BASE_URL}/Complaint/${id}`,
         BY_BUILDING: (buildingId) => `${API_BASE_URL}/Complaint/building/${buildingId}`,
         BY_USER: (userId) => `${API_BASE_URL}/Complaint/user/${userId}`,
@@ -157,7 +178,19 @@ export const API_ENDPOINTS = {
 
     // Tenant endpoints
     TENANT: {
-        GET_DETAILS: (id) => `${API_BASE_URL}/Tenant/${id}`,
+        GET_DETAILS: (id = currentUserId) => `${API_BASE_URL}/Tenant/${id}`,
+        GET_PAYMENTS: (id = currentUserId) => `${API_BASE_URL}/Tenant/${id}/payments`,
+        GET_WITH_PAYMENTS: (id = currentUserId) => `${API_BASE_URL}/Tenant/${id}/with-payments`,
+        UPDATE: (id = currentUserId) => `${API_BASE_URL}/Tenant/${id}`,
+        UPDATE_PROFILE_IMAGE: (id = currentUserId) => `${API_BASE_URL}/Tenant/${id}/profile-image`,
+        DASHBOARD: (id = currentUserId) => `${API_BASE_URL}/Tenant/${id}/dashboard`,
+        NOTIFICATIONS: (id = currentUserId) => `${API_BASE_URL}/Tenant/${id}/notifications`,
+        MARK_NOTIFICATION_READ: (notificationId) => `${API_BASE_URL}/notifications/${notificationId}/read`,
+        MARK_ALL_NOTIFICATIONS_READ: (userId = currentUserId) => `${API_BASE_URL}/notifications/${userId}/read-all`,
+        ACTIVITIES: (userId = currentUserId) => `${API_BASE_URL}/Tenant/${userId}/activities`,
+        PAYMENT_HISTORY: (userId = currentUserId) => `${API_BASE_URL}/Tenant/${userId}/payments`,
+        MAKE_PAYMENT: (paymentId) => `${API_BASE_URL}/Tenant/payments/${paymentId}/pay`,
+        RECENT_PAYMENTS: (userId = currentUserId) => `${API_BASE_URL}/Tenant/${userId}/payments`
     },
 
     // Owner endpoints
@@ -197,21 +230,12 @@ export const API_ENDPOINTS = {
 console.log('\n=== API Endpoints Yapılandırması ===');
 console.log('ADMIN.REPORTS:', API_ENDPOINTS.ADMIN.REPORTS);
 
-// Axios config
-export const axiosConfig = {
-    timeout: 15000,
-    headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-    }
-};
-
 // Auth token yönetimi için helper fonksiyonlar
 export const setAuthToken = (token) => {
     if (token) {
-        axiosConfig.headers['Authorization'] = `Bearer ${token}`;
+        api.defaults.headers['Authorization'] = `Bearer ${token}`;
     } else {
-        delete axiosConfig.headers['Authorization'];
+        delete api.defaults.headers['Authorization'];
     }
 };
 
@@ -277,12 +301,60 @@ export const getProfileResponseFormat = (data) => ({
     message: "İşlem başarılı"
 });
 
+// Admin veri yapısı için helper fonksiyon
+export const getAdminCreateFormat = (data) => ({
+    fullName: data.fullName,
+    email: data.email,
+    phoneNumber: data.phoneNumber,
+    password: data.password,
+    profileImageUrl: data.profileImageUrl || null,
+    description: data.description || null
+});
+
+// Admin veri doğrulama fonksiyonu
+export const validateAdminData = (data) => {
+    const errors = [];
+
+    // Zorunlu alanların kontrolü
+    if (!data.fullName) errors.push('Ad Soyad alanı zorunludur');
+    if (!data.email) errors.push('E-posta alanı zorunludur');
+    if (!data.phoneNumber) errors.push('Telefon numarası zorunludur');
+    if (!data.password) errors.push('Şifre alanı zorunludur');
+
+    // E-posta formatı kontrolü
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (data.email && !emailRegex.test(data.email)) {
+        errors.push('Geçerli bir e-posta adresi giriniz');
+    }
+
+    // Telefon formatı kontrolü
+    const phoneRegex = /^[0-9]{10,11}$/;
+    if (data.phoneNumber && !phoneRegex.test(data.phoneNumber.replace(/\D/g, ''))) {
+        errors.push('Geçerli bir telefon numarası giriniz');
+    }
+
+    // Şifre gereksinimleri kontrolü
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{6,}$/;
+    if (data.password && !passwordRegex.test(data.password)) {
+        errors.push('Şifre en az 6 karakter uzunluğunda olmalı ve en az 1 büyük harf, 1 küçük harf ve 1 rakam içermelidir');
+    }
+
+    return {
+        isValid: errors.length === 0,
+        errors
+    };
+};
+
 export default {
     API_BASE_URL,
     API_ENDPOINTS,
-    axiosConfig,
+    api,
     setAuthToken,
     handleApiError,
     setCurrentAdminId,
-    getCurrentAdminId
+    getCurrentAdminId,
+    setCurrentUserId,
+    getCurrentUserId,
+    getAdminCreateFormat,
+    validateAdminData
 }; 

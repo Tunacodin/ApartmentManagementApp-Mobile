@@ -187,6 +187,7 @@ const ApartmentInfoScreen = ({ navigation }) => {
   const [showBuildingFeatures, setShowBuildingFeatures] = useState(false);
   const [images, setImages] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const scrollViewRef = useRef(null);
 
@@ -383,37 +384,75 @@ const ApartmentInfoScreen = ({ navigation }) => {
   };
 
   const validateForm = () => {
-    const missingFields = [];
+    const newErrors = {};
+    let isValid = true;
 
-    if (!apartmentName.trim()) missingFields.push("- Apartman Adı");
-    if (!numberOfFloors) missingFields.push("- Kat Sayısı");
-    if (!totalApartments) missingFields.push("- Toplam Daire Sayısı");
-    if (!city.trim()) missingFields.push("- Şehir");
-    if (!district.trim()) missingFields.push("- İlçe");
-    if (!neighborhood.trim()) missingFields.push("- Mahalle");
-    if (!street.trim()) missingFields.push("- Sokak");
-    if (!buildingNumber.trim()) missingFields.push("- Bina Numarası");
-    if (!postalCode.trim()) missingFields.push("- Posta Kodu");
-    if (!duesAmount.trim()) missingFields.push("- Aidat Miktarı");
-
-    if (missingFields.length > 0) {
-      console.log("\n=================== FORM DOĞRULAMA ===================");
-      console.log("❌ Eksik Alanlar:");
-      missingFields.forEach(field => console.log(field));
-      console.log("====================================================\n");
-
-      Alert.alert(
-        "Eksik Bilgiler",
-        `Lütfen aşağıdaki alanları doldurun:\n\n${missingFields.join("\n")}`
-      );
-      return false;
+    // Apartman adı kontrolü
+    if (!apartmentName || apartmentName.trim() === '') {
+      newErrors.apartmentName = 'Apartman adı zorunludur';
+      isValid = false;
     }
 
-    console.log("\n=================== FORM DOĞRULAMA ===================");
-    console.log("✅ Tüm alanlar doldurulmuş");
-    console.log("====================================================\n");
+    // Kat sayısı kontrolü
+    if (!numberOfFloors || numberOfFloors <= 0) {
+      newErrors.numberOfFloors = 'Geçerli bir kat sayısı giriniz';
+      isValid = false;
+    }
 
-    return true;
+    // Toplam daire sayısı kontrolü
+    if (!totalApartments || totalApartments <= 0) {
+      newErrors.totalApartments = 'Geçerli bir daire sayısı giriniz';
+      isValid = false;
+    }
+
+    // Adres bilgileri kontrolü
+    if (!city || city.trim() === '') {
+      newErrors.city = 'Şehir seçimi zorunludur';
+      isValid = false;
+    }
+
+    if (!district || district.trim() === '') {
+      newErrors.district = 'İlçe seçimi zorunludur';
+      isValid = false;
+    }
+
+    if (!neighborhood || neighborhood.trim() === '') {
+      newErrors.neighborhood = 'Mahalle seçimi zorunludur';
+      isValid = false;
+    }
+
+    if (!street || street.trim() === '') {
+      newErrors.street = 'Sokak adı zorunludur';
+      isValid = false;
+    }
+
+    if (!buildingNumber || buildingNumber.trim() === '') {
+      newErrors.buildingNumber = 'Bina numarası zorunludur';
+      isValid = false;
+    }
+
+    if (!postalCode || postalCode.trim() === '') {
+      newErrors.postalCode = 'Posta kodu zorunludur';
+      isValid = false;
+    }
+
+    // Aidat kontrolü
+    if (duesAmount < 0) {
+      newErrors.duesAmount = 'Aidat miktarı 0\'dan küçük olamaz';
+    }
+
+    // Isıtma tipi kontrolü
+    if (!heatingType) {
+      newErrors.heatingType = 'Isıtma tipi seçimi zorunludur';
+    }
+
+    // Bina yaşı kontrolü
+    if (buildingAge < 0) {
+      newErrors.buildingAge = 'Bina yaşı 0\'dan küçük olamaz';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   // AsyncStorage'dan veri yükleme
@@ -424,51 +463,120 @@ const ApartmentInfoScreen = ({ navigation }) => {
   // Kaydedilmiş apartman bilgilerini yükle
   const loadSavedApartment = async () => {
     try {
-      const savedApartment = await AsyncStorage.getItem('savedApartment');
-      if (savedApartment) {
-        const apartmentData = JSON.parse(savedApartment);
-        
-        // State'leri güncelle
-        setApartmentName(apartmentData.buildingName || '');
-        setNumberOfFloors(apartmentData.numberOfFloors?.toString() || '');
-        setTotalApartments(apartmentData.totalApartments?.toString() || '');
-        setCity(apartmentData.city || '');
-        setDistrict(apartmentData.district || '');
-        setNeighborhood(apartmentData.neighborhood || '');
-        setStreet(apartmentData.street || '');
-        setBuildingNumber(apartmentData.buildingNumber || '');
-        setPostalCode(apartmentData.postalCode || '');
-        setDuesAmount(apartmentData.duesAmount?.toString() || '');
+      const savedData = await AsyncStorage.getItem('savedApartment');
+      if (savedData) {
+        const data = JSON.parse(savedData);
+        setApartmentName(data.buildingName || "Melek apartmanı");
+        setNumberOfFloors(data.numberOfFloors?.toString() || "6");
+        setTotalApartments(data.totalApartments?.toString() || "18");
+        setCity(data.city || "Denizli");
+        setDistrict(data.district || "Pamukkale");
+        setNeighborhood(data.neighborhood || "Asmalıevler");
+        setStreet(data.street || "6668");
+        setBuildingNumber(data.buildingNumber || "14");
+        setPostalCode(data.postalCode || "20160");
+        setDuesAmount(data.duesAmount?.toString() || "0");
         
         setIncludedUtilities({
-          electric: apartmentData.includedElectric || false,
-          water: apartmentData.includedWater || false,
-          gas: apartmentData.includedGas || false,
-          internet: apartmentData.includedInternet || false
+          electric: data.includedElectric || false,
+          water: data.includedWater || false,
+          gas: data.includedGas || false,
+          internet: data.includedInternet || true
         });
 
         setBuildingFeatures({
+          heating: {
+            type: data.heatingType || "central",
+            details: data.heatingDetails || ''
+          },
+          elevator: data.hasElevator || true,
           parking: {
-            exists: apartmentData.parkingType !== 'Yok',
-            type: apartmentData.parkingType !== 'Yok' ? apartmentData.parkingType : null
+            exists: data.parkingType !== 'Yok',
+            type: data.parkingType !== 'Yok' ? data.parkingType : null
           },
-          elevator: apartmentData.hasElevator || false,
-          park: apartmentData.hasPlayground || false,
-          heatingSystem: apartmentData.heatingType || 'central',
           pool: {
-            exists: apartmentData.poolType !== 'Yok',
-            type: apartmentData.poolType !== 'Yok' ? apartmentData.poolType : null
+            exists: data.poolType !== 'Yok',
+            type: data.poolType !== 'Yok' ? data.poolType : null
           },
-          gym: apartmentData.hasGym || false,
-          buildingAge: apartmentData.buildingAge?.toString() || '',
-          garden: apartmentData.hasGarden || false,
-          thermalInsulation: apartmentData.hasThermalInsulation || false
+          gym: data.hasGym || false,
+          garden: data.hasGarden || false,
+          thermalInsulation: data.hasThermalInsulation || true,
+          buildingAge: data.buildingAge?.toString() || "0"
         });
 
-        console.log('Apartman bilgileri yüklendi:', apartmentData);
+        if (data.images) {
+          setImages(data.images);
+        }
+      } else {
+        // Varsayılan değerleri ayarla
+        setApartmentName("Melek apartmanı");
+        setNumberOfFloors("6");
+        setTotalApartments("18");
+        setCity("Denizli");
+        setDistrict("Pamukkale");
+        setNeighborhood("Asmalıevler");
+        setStreet("6668");
+        setBuildingNumber("14");
+        setPostalCode("20160");
+        setDuesAmount("0");
+        
+        setIncludedUtilities({
+          electric: false,
+          water: false,
+          gas: false,
+          internet: true
+        });
+
+        setBuildingFeatures({
+          heating: {
+            type: "central",
+            details: ''
+          },
+          elevator: true,
+          parking: {
+            exists: false,
+            type: null
+          },
+          pool: {
+            exists: false,
+            type: null
+          },
+          gym: false,
+          garden: false,
+          thermalInsulation: true,
+          buildingAge: "0"
+        });
+
+        // Varsayılan değerleri kaydet
+        const defaultData = {
+          buildingName: "Melek apartmanı",
+          numberOfFloors: 6,
+          totalApartments: 18,
+          city: "Denizli",
+          district: "Pamukkale",
+          neighborhood: "Asmalıevler",
+          street: "6668",
+          buildingNumber: "14",
+          postalCode: "20160",
+          duesAmount: 0,
+          includedElectric: false,
+          includedWater: false,
+          includedGas: false,
+          includedInternet: true,
+          hasElevator: true,
+          hasGarden: false,
+          hasGym: false,
+          hasPlayground: false,
+          hasThermalInsulation: true,
+          heatingType: "central",
+          parkingType: "Yok",
+          poolType: "Yok",
+          buildingAge: 0
+        };
+        await AsyncStorage.setItem('savedApartment', JSON.stringify(defaultData));
       }
     } catch (error) {
-      console.error('Apartman bilgileri yüklenirken hata:', error);
+      console.error('Error loading saved apartment:', error);
     }
   };
 
@@ -484,50 +592,71 @@ const ApartmentInfoScreen = ({ navigation }) => {
 
   // handleSubmit fonksiyonunu güncelle
   const handleSubmit = async () => {
-    if (!validateForm()) {
-      return;
-    }
-
-    setIsLoading(true);
-    console.log("\n=================== İŞLEM BAŞLADI ===================");
-
     try {
+      setIsLoading(true);
+
+      // Form validasyonu
+      if (!validateForm()) {
+        Alert.alert(
+          'Validasyon Hatası',
+          'Lütfen tüm zorunlu alanları doğru şekilde doldurunuz.',
+          [{ text: 'Tamam' }]
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      // Form verilerini backend'in beklediği formata dönüştür
       const buildingData = {
-        buildingName: apartmentName.trim(),
-        numberOfFloors: parseInt(numberOfFloors),
-        totalApartments: parseInt(totalApartments),
-        occupancyRate: 0,
-        city: city.trim(),
-        district: district.trim(),
-        neighborhood: neighborhood.trim(),
-        street: street.trim(),
-        buildingNumber: buildingNumber.trim(),
-        postalCode: postalCode.trim(),
-        duesAmount: parseFloat(duesAmount || "0"),
-        includedElectric: includedUtilities.electric,
-        includedWater: includedUtilities.water,
-        includedGas: includedUtilities.gas,
-        includedInternet: includedUtilities.internet,
-        adminId: 1,
-        createdAt: new Date().toISOString(),
-        isActive: true,
-        lastMaintenanceDate: new Date().toISOString()
+        building: {
+          buildingName: apartmentName.trim(),
+          numberOfFloors: parseInt(numberOfFloors),
+          totalApartments: parseInt(totalApartments),
+          city: city.trim(),
+          district: district.trim(),
+          neighborhood: neighborhood.trim(),
+          street: street.trim(),
+          buildingNumber: buildingNumber.trim(),
+          postalCode: postalCode.trim(),
+          duesAmount: parseFloat(duesAmount || "0"),
+          includedElectric: includedUtilities.electric,
+          includedWater: includedUtilities.water,
+          includedGas: includedUtilities.gas,
+          includedInternet: includedUtilities.internet,
+          parkingType: buildingFeatures.parking ? "Yeraltı" : "Yok",
+          hasElevator: buildingFeatures.elevator,
+          hasPlayground: buildingFeatures.playground,
+          heatingType: heatingType,
+          poolType: buildingFeatures.pool ? "Açık" : "Yok",
+          hasGym: buildingFeatures.gym,
+          buildingAge: parseInt(buildingAge || "0"),
+          hasGarden: buildingFeatures.garden,
+          hasThermalInsulation: buildingFeatures.thermalInsulation,
+          isActive: true
+        }
       };
 
-      // Bina özellikleri formunu göster
-      console.log("Temel bilgiler kaydedildi, bina özellikleri formuna geçiliyor...");
-      setShowBuildingFeatures(true);
-      setShowForm(false);
+      // Verileri AsyncStorage'a kaydet
+      await saveApartmentToStorage(buildingData);
 
+      // Başarı mesajını göster
+      Alert.alert(
+        'Başarılı',
+        'Apartman bilgileri başarıyla kaydedildi.',
+        [
+          {
+            text: 'Tamam',
+            onPress: () => {
+              setIsLoading(false);
+              navigation.navigate('FinancialInfo');
+            }
+          }
+        ]
+      );
     } catch (error) {
-      console.log("\n=================== HATA OLUŞTU ===================");
-      console.error("❌ Hata detayı:", error);
-      logApiError(error, "KAYIT");
-      
-      Alert.alert("Hata", "Bina bilgileri kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.");
-    } finally {
+      console.error('Hata:', error);
       setIsLoading(false);
-      console.log("=================== İŞLEM TAMAMLANDI ===================\n");
+      Alert.alert('Hata', 'Apartman bilgileri kaydedilirken bir hata oluştu.');
     }
   };
 
@@ -552,7 +681,7 @@ const ApartmentInfoScreen = ({ navigation }) => {
     handleAddApartmentDetails(buildingData);
     setShowBuildingFeatures(false);
     setShowApartmentDetails(true);
-  };
+};
 
   // Form verilerini sıfırlama fonksiyonu
   const resetForm = () => {
@@ -782,166 +911,200 @@ const ApartmentInfoScreen = ({ navigation }) => {
       <View style={styles.formContent}>
         <View style={styles.formSection}>
           <Text style={styles.sectionTitle}>Temel Bilgiler</Text>
-          <View style={styles.inputContainer}>
+      <View style={styles.inputContainer}>
             <View style={styles.iconWrapper}>
               <MaterialIcons name="apartment" size={20} color={Colors.primary} />
             </View>
-            <PaperInput
-              label="Apartman Adı"
-              value={apartmentName}
-              onChangeText={setApartmentName}
-              style={styles.input}
-              mode="outlined"
-              outlineColor="#E2E8F0"
-              activeOutlineColor={Colors.primary}
-              theme={{ colors: { background: '#F8FAFC' }}}
-            />
-          </View>
+        <PaperInput
+          label="Apartman Adı"
+          value={apartmentName}
+          onChangeText={(text) => {
+            setApartmentName(text);
+            setErrors(prev => ({ ...prev, apartmentName: undefined }));
+          }}
+          style={styles.input}
+          outlineColor={errors.apartmentName ? Colors.error : "#E2E8F0"}
+          activeOutlineColor={errors.apartmentName ? Colors.error : Colors.primary}
+          error={!!errors.apartmentName}
+          theme={{ colors: { background: '#F8FAFC' }}}
+        />
+      </View>
+      {errors.apartmentName && <Text style={styles.errorText}>{errors.apartmentName}</Text>}
 
-          <View style={styles.inputContainer}>
+      <View style={styles.inputContainer}>
             <View style={styles.iconWrapper}>
               <MaterialIcons name="layers" size={20} color={Colors.primary} />
             </View>
-            <PaperInput
-              label="Kat Sayısı"
-              value={numberOfFloors}
-              onChangeText={setNumberOfFloors}
-              keyboardType="numeric"
-              style={styles.input}
-              mode="outlined"
-              outlineColor="#E2E8F0"
-              activeOutlineColor={Colors.primary}
-              theme={{ colors: { background: '#F8FAFC' }}}
-            />
-          </View>
+        <PaperInput
+          mode="outlined"
+          label="Kat Sayısı"
+          value={numberOfFloors.toString()}
+          onChangeText={(text) => {
+            setNumberOfFloors(parseInt(text) || 0);
+            setErrors(prev => ({ ...prev, numberOfFloors: undefined }));
+          }}
+          style={styles.input}
+          outlineColor={errors.numberOfFloors ? Colors.error : "#E2E8F0"}
+          activeOutlineColor={errors.numberOfFloors ? Colors.error : Colors.primary}
+          error={!!errors.numberOfFloors}
+          keyboardType="numeric"
+          theme={{ colors: { background: '#F8FAFC' }}}
+        />
+      </View>
+      {errors.numberOfFloors && <Text style={styles.errorText}>{errors.numberOfFloors}</Text>}
 
-          <View style={styles.inputContainer}>
+      <View style={styles.inputContainer}>
             <View style={styles.iconWrapper}>
               <MaterialIcons name="home" size={20} color={Colors.primary} />
             </View>
-            <PaperInput
-              label="Toplam Daire Sayısı"
-              value={totalApartments}
-              onChangeText={setTotalApartments}
-              keyboardType="numeric"
-              style={styles.input}
+        <PaperInput
+          label="Toplam Daire Sayısı"
+          value={totalApartments}
+          onChangeText={setTotalApartments}
+          keyboardType="numeric"
+          style={styles.input}
               mode="outlined"
               outlineColor="#E2E8F0"
               activeOutlineColor={Colors.primary}
               theme={{ colors: { background: '#F8FAFC' }}}
             />
           </View>
-        </View>
+      </View>
 
         <View style={styles.formSection}>
           <Text style={styles.sectionTitle}>Adres Bilgileri</Text>
-          <View style={styles.inputContainer}>
+      <View style={styles.inputContainer}>
             <View style={styles.iconWrapper}>
               <MaterialIcons name="location-city" size={20} color={Colors.primary} />
             </View>
-            <PaperInput
-              label="Şehir"
-              value={city}
+          <PaperInput
+            label="Şehir"
+            value={city}
               onChangeText={setCity}
-              style={styles.input}
+            style={styles.input}
               mode="outlined"
               outlineColor="#E2E8F0"
               activeOutlineColor={Colors.primary}
               theme={{ colors: { background: '#F8FAFC' }}}
             />
-          </View>
+      </View>
 
-          <View style={styles.inputContainer}>
+      <View style={styles.inputContainer}>
             <View style={styles.iconWrapper}>
               <MaterialIcons name="location-on" size={20} color={Colors.primary} />
             </View>
-            <PaperInput
-              label="İlçe"
-              value={district}
+          <PaperInput
+            label="İlçe"
+            value={district}
               onChangeText={setDistrict}
-              style={styles.input}
+            style={styles.input}
               mode="outlined"
               outlineColor="#E2E8F0"
               activeOutlineColor={Colors.primary}
               theme={{ colors: { background: '#F8FAFC' }}}
             />
-          </View>
+      </View>
 
-          <View style={styles.inputContainer}>
+      <View style={styles.inputContainer}>
             <View style={styles.iconWrapper}>
               <MaterialIcons name="place" size={20} color={Colors.primary} />
             </View>
-            <PaperInput
-              label="Mahalle"
-              value={neighborhood}
+          <PaperInput
+            label="Mahalle"
+            value={neighborhood}
               onChangeText={setNeighborhood}
-              style={styles.input}
+            style={styles.input}
               mode="outlined"
               outlineColor="#E2E8F0"
               activeOutlineColor={Colors.primary}
               theme={{ colors: { background: '#F8FAFC' }}}
             />
-          </View>
+      </View>
 
-          <View style={styles.inputContainer}>
+      <View style={styles.inputContainer}>
             <View style={styles.iconWrapper}>
               <MaterialIcons name="add-road" size={20} color={Colors.primary} />
             </View>
-            <PaperInput
-              label="Sokak"
-              value={street}
-              onChangeText={setStreet}
-              style={styles.input}
+        <PaperInput
+          label="Sokak"
+          value={street}
+          onChangeText={setStreet}
+          style={styles.input}
               mode="outlined"
               outlineColor="#E2E8F0"
               activeOutlineColor={Colors.primary}
               theme={{ colors: { background: '#F8FAFC' }}}
-            />
-          </View>
+        />
+      </View>
 
-          <View style={styles.inputContainer}>
+      <View style={styles.inputContainer}>
             <View style={styles.iconWrapper}>
               <MaterialIcons name="home" size={20} color={Colors.primary} />
             </View>
-            <PaperInput
-              label="Bina No"
-              value={buildingNumber}
-              onChangeText={setBuildingNumber}
-              style={styles.input}
+        <PaperInput
+          label="Bina No"
+          value={buildingNumber}
+          onChangeText={setBuildingNumber}
+          style={styles.input}
               mode="outlined"
               outlineColor="#E2E8F0"
               activeOutlineColor={Colors.primary}
               theme={{ colors: { background: '#F8FAFC' }}}
-            />
-          </View>
+        />
+      </View>
 
-          <View style={styles.inputContainer}>
+      <View style={styles.inputContainer}>
             <View style={styles.iconWrapper}>
               <MaterialIcons name="local-post-office" size={20} color={Colors.primary} />
             </View>
-            <PaperInput
-              label="Posta Kodu"
-              value={postalCode}
-              onChangeText={setPostalCode}
-              keyboardType="numeric"
-              style={styles.input}
+        <PaperInput
+          label="Posta Kodu"
+          value={postalCode}
+          onChangeText={setPostalCode}
+          keyboardType="numeric"
+          style={styles.input}
               mode="outlined"
               outlineColor="#E2E8F0"
               activeOutlineColor={Colors.primary}
               theme={{ colors: { background: '#F8FAFC' }}}
-            />
+        />
+      </View>
+
+      <View style={styles.inputContainer}>
+            <View style={styles.iconWrapper}>
+              <MaterialIcons name="account-balance-wallet" size={20} color={Colors.primary} />
+            </View>
+        <PaperInput
+          label="Aidat Miktarı (₺)"
+          value={duesAmount}
+          onChangeText={setDuesAmount}
+          keyboardType="numeric"
+          style={styles.input}
+              mode="outlined"
+              outlineColor="#E2E8F0"
+              activeOutlineColor={Colors.primary}
+              theme={{ colors: { background: '#F8FAFC' }}}
+          right={<PaperInput.Affix text="₺" />}
+        />
           </View>
-        </View>
+      </View>
 
         {/* Fotoğraf Yükleme Bölümü */}
         {renderPhotoUploadSection()}
 
-        <TouchableOpacity
-          style={styles.submitButton}
+            <TouchableOpacity
+          style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
           onPress={handleSubmit}
+          disabled={isLoading}
         >
-          <Text style={styles.submitButtonText}>Kaydet ve Devam Et</Text>
-          <MaterialIcons name="arrow-forward" size={24} color="#FFFFFF" style={{ marginLeft: 8 }} />
+          {isLoading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <>
+              <Text style={styles.submitButtonText}>Kaydet ve Devam Et</Text>
+              <MaterialIcons name="arrow-forward" size={24} color="#FFFFFF" style={{ marginLeft: 8 }} />
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -965,21 +1128,21 @@ const ApartmentInfoScreen = ({ navigation }) => {
           {['central', 'combi', 'floor'].map((option) => {
             const heatingOption = heatingOptions.find(opt => opt.value === option);
             return (
-              <TouchableOpacity
+            <TouchableOpacity
                 key={option}
-                style={[
+              style={[
                   styles.heatingOptionButton,
                   buildingFeatures.heatingSystem === option && styles.heatingOptionButtonSelected
-                ]}
+              ]}
                 onPress={() => handleFeatureChange('heatingSystem', option)}
-              >
-                <Text style={[
+            >
+              <Text style={[
                   styles.heatingOptionText,
                   buildingFeatures.heatingSystem === option && styles.heatingOptionTextSelected
-                ]}>
+              ]}>
                   {heatingOption.label}
-                </Text>
-              </TouchableOpacity>
+              </Text>
+            </TouchableOpacity>
             );
           })}
         </View>
@@ -1112,21 +1275,21 @@ const ApartmentInfoScreen = ({ navigation }) => {
           {['central', 'combi', 'floor'].map((option) => {
             const heatingOption = heatingOptions.find(opt => opt.value === option);
             return (
-              <TouchableOpacity
+            <TouchableOpacity
                 key={option}
-                style={[
-                  styles.radioButton,
+              style={[
+                styles.radioButton,
                   buildingFeatures.heatingSystem === option && styles.radioButtonSelected
-                ]}
+              ]}
                 onPress={() => handleFeatureChange('heatingSystem', option)}
-              >
-                <Text style={[
-                  styles.radioText,
+            >
+              <Text style={[
+                styles.radioText,
                   buildingFeatures.heatingSystem === option && styles.radioTextSelected
-                ]}>
+              ]}>
                   {heatingOption.label}
-                </Text>
-              </TouchableOpacity>
+              </Text>
+            </TouchableOpacity>
             );
           })}
         </View>
@@ -1182,11 +1345,18 @@ const ApartmentInfoScreen = ({ navigation }) => {
 
       <View style={styles.buttonContainer}>
         <TouchableOpacity
-          style={styles.saveFeatureButton}
-          onPress={handleFeaturesSave}
+          style={[styles.saveFeatureButton, isLoading && styles.saveFeatureButtonDisabled]}
+          onPress={handleSubmit}
+          disabled={isLoading}
         >
-          <Text style={styles.saveFeatureButtonText}>Kaydet ve Devam Et</Text>
-          <MaterialIcons name="arrow-forward" size={24} color="#FFFFFF" style={{ marginLeft: 8 }} />
+          {isLoading ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <>
+              <Text style={styles.saveFeatureButtonText}>Kaydet ve Devam Et</Text>
+              <MaterialIcons name="arrow-forward" size={24} color="#FFFFFF" style={{ marginLeft: 8 }} />
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -1641,7 +1811,7 @@ const ApartmentInfoScreen = ({ navigation }) => {
               {apartments.length > 0 
                 ? `${apartments.length} bina kayıtlı`
                 : 'Henüz bina eklemediniz'}
-            </Text>
+      </Text>
           </View>
         </View>
       </LinearGradient>
@@ -1948,7 +2118,7 @@ const ApartmentInfoScreen = ({ navigation }) => {
   const handleFloorChange = (newFloor) => {
     if (newFloor >= 0 && newFloor < selectedApartment.numberOfFloors) {
       setSelectedFloor(newFloor);
-      setSelectedUnits([]);
+    setSelectedUnits([]);
     }
   };
 
@@ -1983,9 +2153,9 @@ const ApartmentInfoScreen = ({ navigation }) => {
 
   const renderApartmentList = () => {
     return (
-      <View style={styles.listContainer}>
+    <View style={styles.listContainer}>
         {apartments.map((apartment, index) => (
-          <TouchableOpacity
+                <TouchableOpacity 
             key={index}
             style={styles.apartmentCard}
             onPress={() => {
@@ -1996,7 +2166,7 @@ const ApartmentInfoScreen = ({ navigation }) => {
             <View style={styles.cardHeader}>
               <Text style={styles.buildingName}>{apartment.buildingName}</Text>
               <Text style={styles.address}>{apartment.address}</Text>
-            </View>
+              </View>
             <View style={styles.cardContent}>
               <View style={styles.infoRow}>
                 <MaterialIcons name="apartment" size={20} color={Colors.text.secondary} />
@@ -2005,15 +2175,15 @@ const ApartmentInfoScreen = ({ navigation }) => {
               <View style={styles.infoRow}>
                 <MaterialIcons name="home" size={20} color={Colors.text.secondary} />
                 <Text style={styles.infoText}>{`${apartment.totalUnits} Daire`}</Text>
-              </View>
-            </View>
+                    </View>
+                    </View>
             <View style={styles.cardFooter}>
               <MaterialIcons name="chevron-right" size={24} color={Colors.text.secondary} />
-            </View>
+                    </View>
           </TouchableOpacity>
         ))}
-      </View>
-    );
+    </View>
+  );
   };
 
   const handleEditApartment = (apartment) => {
@@ -2098,17 +2268,17 @@ const ApartmentInfoScreen = ({ navigation }) => {
   // Fotoğraf seçme fonksiyonu
   const pickImage = async () => {
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
-      });
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.8,
+        });
 
       if (!result.canceled) {
         setImages(prevImages => [...prevImages, result.assets[0].uri]);
-      }
-    } catch (error) {
+                }
+            } catch (error) {
       console.error('Error picking image:', error);
       Alert.alert('Hata', 'Fotoğraf seçilirken bir hata oluştu.');
     }
@@ -2168,7 +2338,7 @@ const ApartmentInfoScreen = ({ navigation }) => {
           await imageService.addImage('temp', imageData);
           console.log('Image data saved successfully');
 
-        } catch (error) {
+    } catch (error) {
           console.error('Error processing image:', error);
           console.error('Error code:', error.code);
           console.error('Error message:', error.message);
@@ -2183,9 +2353,9 @@ const ApartmentInfoScreen = ({ navigation }) => {
           } else {
             Alert.alert('Hata', `Fotoğraf yüklenirken bir hata oluştu: ${error.message}`);
           }
-          throw error;
-        }
-      }
+      throw error;
+    }
+  }
 
       Alert.alert('Başarılı', 'Fotoğraflar başarıyla yüklendi.');
       setImages([]);
@@ -2325,9 +2495,9 @@ const ApartmentInfoScreen = ({ navigation }) => {
         </ScrollView>
 
         {/* Finans ekranına geçiş butonu */}
-        <TouchableOpacity
+          <TouchableOpacity 
           style={styles.financeButton}
-          onPress={() => {
+            onPress={() => {
             navigation.navigate('AdminCreate', {
               screen: 'FinancialInfo'
             });
@@ -2342,7 +2512,7 @@ const ApartmentInfoScreen = ({ navigation }) => {
             <Text style={styles.financeButtonText}>Finansal Bilgilere Geç</Text>
             <MaterialIcons name="arrow-forward" size={24} color="#FFFFFF" style={{ marginLeft: 8 }} />
           </LinearGradient>
-        </TouchableOpacity>
+          </TouchableOpacity>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -3376,20 +3546,18 @@ const styles = StyleSheet.create({
   },
   saveFeatureButton: {
     backgroundColor: Colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
     borderRadius: 12,
-    width: '60%',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 32,
+    width: '100%',
+  },
+  saveFeatureButtonDisabled: {
+    opacity: 0.7,
   },
   saveFeatureButtonText: {
     color: '#FFFFFF',
@@ -3565,6 +3733,17 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary,
     marginTop: 4,
     fontFamily: Fonts.urbanist.regular,
+  },
+  errorText: {
+    color: Colors.error,
+    fontSize: 12,
+    fontFamily: Fonts.urbanist.regular,
+    marginTop: -12,
+    marginBottom: 8,
+    marginLeft: 52,
+  },
+  submitButtonDisabled: {
+    opacity: 0.7,
   },
 });
 

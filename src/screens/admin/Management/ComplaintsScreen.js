@@ -9,21 +9,24 @@ import {
   Alert,
   Modal,
   TextInput,
-  ScrollView
+  ScrollView,
+  RefreshControl
 } from 'react-native';
 import axios from 'axios';
 import { API_ENDPOINTS, getCurrentAdminId } from '../../../config/apiConfig';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
 // Şikayet durumları için enum
 const ComplaintStatus = {
-  OPEN: 0,
-  IN_PROGRESS: 1,
-  RESOLVED: 2,
-  CANCELLED: 3
+  Open: 0,
+  InProgress: 1,
+  Resolved: 2,
+  Cancelled: 3
 };
 
 const ComplaintsScreen = () => {
+  const navigation = useNavigation();
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -31,15 +34,42 @@ const ComplaintsScreen = () => {
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [response, setResponse] = useState('');
   const [selectedBuildingId, setSelectedBuildingId] = useState(1);
+  const [newComplaint, setNewComplaint] = useState({
+    subject: '',
+    description: '',
+  });
 
   const fetchComplaints = async () => {
     try {
-      const response = await axios.get(API_ENDPOINTS.COMPLAINT.BY_BUILDING(selectedBuildingId));
-      console.log('Complaints data:', response.data);
-      setComplaints(response.data.data);
+      console.log('Fetching complaints for building:', selectedBuildingId);
+      setLoading(true);
+      
+      const result = await axios.get(API_ENDPOINTS.COMPLAINT.BY_BUILDING(selectedBuildingId));
+      console.log('Raw API Response:', result);
+      console.log('API Response Data:', result.data);
+      
+      // API yanıtını kontrol et ve işle
+      if (result && result.data) {
+        console.log('API Response Success:', result.data.success);
+        console.log('API Response Data Type:', typeof result.data.data);
+        console.log('API Response Data is Array:', Array.isArray(result.data.data));
+        
+        if (result.data.success && Array.isArray(result.data.data)) {
+          console.log('Setting complaints with data:', result.data.data);
+          setComplaints(result.data.data);
+        } else {
+          console.log('Setting empty complaints array due to invalid data');
+          setComplaints([]);
+        }
+      } else {
+        console.log('Setting empty complaints array due to missing data');
+        setComplaints([]);
+      }
     } catch (error) {
-      console.error('Şikayetler yüklenirken hata:', error);
-      Alert.alert('Hata', 'Şikayetler yüklenirken bir hata oluştu.');
+      console.error('Error fetching complaints:', error);
+      console.error('Error response:', error.response);
+      console.error('Error message:', error.message);
+      setComplaints([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -47,10 +77,15 @@ const ComplaintsScreen = () => {
   };
 
   useEffect(() => {
+    console.log('ComplaintsScreen mounted');
     fetchComplaints();
+    return () => {
+      console.log('ComplaintsScreen unmounted');
+    };
   }, [selectedBuildingId]);
 
   const onRefresh = () => {
+    console.log('Refreshing complaints');
     setRefreshing(true);
     fetchComplaints();
   };
@@ -67,9 +102,6 @@ const ComplaintsScreen = () => {
         adminId: getCurrentAdminId()
       });
 
-      // Şikayet durumunu güncelle
-      await handleStatusChange(selectedComplaint.id, ComplaintStatus.IN_PROGRESS);
-      
       setModalVisible(false);
       setResponse('');
       setSelectedComplaint(null);
@@ -83,13 +115,9 @@ const ComplaintsScreen = () => {
 
   const handleStatusChange = async (complaintId, newStatus) => {
     try {
-      if (newStatus === ComplaintStatus.RESOLVED) {
-        await axios.post(API_ENDPOINTS.COMPLAINT.RESOLVE(complaintId));
-      } else {
-        await axios.put(API_ENDPOINTS.COMPLAINT.UPDATE(complaintId), {
-          status: newStatus
-        });
-      }
+      await axios.put(API_ENDPOINTS.COMPLAINT.UPDATE(complaintId), {
+        status: newStatus
+      });
       fetchComplaints();
     } catch (error) {
       console.error('Durum güncellenirken hata:', error);
@@ -99,37 +127,32 @@ const ComplaintsScreen = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case ComplaintStatus.OPEN:
-      case null:
-        return '#FF3B30'; // Kırmızı
-      case ComplaintStatus.IN_PROGRESS:
-        return '#FF9500'; // Turuncu
-      case ComplaintStatus.RESOLVED:
-        return '#34C759'; // Yeşil
-      case ComplaintStatus.CANCELLED:
-        return '#8E8E93'; // Gri
+      case ComplaintStatus.Open:
+        return '#FFA500'; // Turuncu
+      case ComplaintStatus.InProgress:
+        return '#4169E1'; // Mavi
+      case ComplaintStatus.Resolved:
+        return '#32CD32'; // Yeşil
       default:
-        return '#FF3B30';
+        return '#808080'; // Gri
     }
   };
 
   const getStatusText = (status) => {
     switch (status) {
-      case ComplaintStatus.OPEN:
-      case null:
+      case ComplaintStatus.Open:
         return 'Açık';
-      case ComplaintStatus.IN_PROGRESS:
+      case ComplaintStatus.InProgress:
         return 'İşlemde';
-      case ComplaintStatus.RESOLVED:
+      case ComplaintStatus.Resolved:
         return 'Çözüldü';
-      case ComplaintStatus.CANCELLED:
-        return 'İptal Edildi';
       default:
-        return 'Açık';
+        return 'Bilinmiyor';
     }
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return 'Tarih yok';
     const date = new Date(dateString);
     return date.toLocaleDateString('tr-TR', {
       year: 'numeric',
@@ -140,56 +163,72 @@ const ComplaintsScreen = () => {
     });
   };
 
-  const renderComplaintItem = ({ item }) => (
-    <View style={styles.complaintCard}>
-      <View style={styles.complaintHeader}>
-        <View style={styles.titleContainer}>
-          <Text style={styles.subject}>{item.subject}</Text>
-          <Text style={[styles.status, { color: getStatusColor(item.status) }]}>
-            {getStatusText(item.status)}
-          </Text>
+  const renderComplaintItem = ({ item, index }) => {
+    console.log(`Rendering complaint item ${index}:`, item);
+    return (
+      <TouchableOpacity
+        style={styles.complaintItem}
+        onPress={() => navigation.navigate('ComplaintDetail', { complaintId: item.id })}
+      >
+        <View style={styles.complaintHeader}>
+          <View style={styles.titleContainer}>
+            <Text style={styles.subject}>{item.subject || 'Konu belirtilmemiş'}</Text>
+            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+              <Text style={styles.statusText}>{getStatusText(item.status)}</Text>
+            </View>
+          </View>
+          <Text style={styles.createdBy}>Oluşturan: {item.createdByName || 'Bilinmiyor'}</Text>
+          <Text style={styles.date}>Tarih: {formatDate(item.createdAt)}</Text>
         </View>
-        <Text style={styles.createdBy}>Oluşturan: {item.createdByName}</Text>
-        <Text style={styles.date}>Tarih: {formatDate(item.createdAt)}</Text>
-      </View>
 
-      <Text style={styles.description}>{item.description}</Text>
+        <Text style={styles.description} numberOfLines={2}>
+          {item.description || 'Açıklama yok'}
+        </Text>
 
-      <View style={styles.actionButtons}>
-        {(item.status === ComplaintStatus.OPEN || item.status === null) && (
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: '#007AFF' }]}
-            onPress={() => {
-              setSelectedComplaint(item);
-              setModalVisible(true);
-            }}
-          >
-            <Text style={styles.actionButtonText}>Yanıtla</Text>
-          </TouchableOpacity>
-        )}
+        <View style={styles.actionButtons}>
+          {item.status === ComplaintStatus.Open && (
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: '#007AFF' }]}
+              onPress={() => {
+                console.log('Selected complaint for response:', item);
+                setSelectedComplaint(item);
+                setModalVisible(true);
+              }}
+            >
+              <Text style={styles.actionButtonText}>Yanıtla</Text>
+            </TouchableOpacity>
+          )}
 
-        {item.status === ComplaintStatus.IN_PROGRESS && (
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: '#34C759' }]}
-            onPress={() => handleStatusChange(item.id, ComplaintStatus.RESOLVED)}
-          >
-            <Text style={styles.actionButtonText}>Çözüldü Olarak İşaretle</Text>
-          </TouchableOpacity>
-        )}
+          {item.status === ComplaintStatus.InProgress && (
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: '#34C759' }]}
+              onPress={() => {
+                console.log('Marking complaint as resolved:', item);
+                handleStatusChange(item.id, ComplaintStatus.Resolved);
+              }}
+            >
+              <Text style={styles.actionButtonText}>Çözüldü Olarak İşaretle</Text>
+            </TouchableOpacity>
+          )}
 
-        {(item.status === ComplaintStatus.OPEN || item.status === null) && (
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: '#8E8E93' }]}
-            onPress={() => handleStatusChange(item.id, ComplaintStatus.CANCELLED)}
-          >
-            <Text style={styles.actionButtonText}>İptal Et</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
-  );
+          {item.status === ComplaintStatus.Open && (
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: '#8E8E93' }]}
+              onPress={() => {
+                console.log('Cancelling complaint:', item);
+                handleStatusChange(item.id, ComplaintStatus.Cancelled);
+              }}
+            >
+              <Text style={styles.actionButtonText}>İptal Et</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   if (loading) {
+    console.log('Showing loading indicator');
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
@@ -197,19 +236,39 @@ const ComplaintsScreen = () => {
     );
   }
 
+  console.log('Current complaints state:', complaints);
+  console.log('Rendering FlatList with data length:', complaints.length);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerText}>Şikayetler</Text>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => setModalVisible(true)}
+        >
+          <Ionicons name="add-circle" size={24} color="#4169E1" />
+        </TouchableOpacity>
       </View>
 
       <FlatList
         data={complaints}
         renderItem={renderComplaintItem}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item) => {
+          console.log('KeyExtractor item:', item);
+          return item.id.toString();
+        }}
         refreshing={refreshing}
         onRefresh={onRefresh}
         contentContainerStyle={styles.listContainer}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>Henüz şikayet bulunmamaktadır.</Text>
+          </View>
+        }
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       />
 
       <Modal
@@ -265,6 +324,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 20,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
@@ -274,10 +336,13 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
   },
+  addButton: {
+    padding: 8,
+  },
   listContainer: {
     padding: 15,
   },
-  complaintCard: {
+  complaintItem: {
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 15,
@@ -302,10 +367,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     flex: 1,
   },
-  status: {
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    color: '#fff',
     fontSize: 14,
     fontWeight: '500',
-    marginLeft: 10,
   },
   createdBy: {
     fontSize: 14,
@@ -378,6 +448,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '500',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
   },
 });
 

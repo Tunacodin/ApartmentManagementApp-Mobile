@@ -15,8 +15,7 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 import colors from '../../styles/colors';
 import { BlurView } from 'expo-blur';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_ENDPOINTS, axiosConfig, setCurrentAdminId } from '../../config/apiConfig';
-import axios from 'axios';
+import { API_ENDPOINTS, api, setCurrentAdminId, setCurrentUserId, setAuthToken } from '../../config/apiConfig';
 
 const LoginScreen = ({ navigation, route }) => {
   const [email, setEmail] = useState('');
@@ -37,6 +36,9 @@ const LoginScreen = ({ navigation, route }) => {
     if (!validateForm()) return;
 
     setIsLoading(true);
+    console.log('\n=== Giriş İşlemi Başladı ===');
+    console.log('Giriş yapılmaya çalışılan email:', email.trim());
+    console.log('Giriş yapılmaya çalışılan rol:', role);
 
     const loginData = {
       email: email.trim(),
@@ -44,63 +46,102 @@ const LoginScreen = ({ navigation, route }) => {
     };
 
     try {
-      console.log('Login isteği gönderiliyor:', {
-        endpoint: API_ENDPOINTS.AUTH.LOGIN,
-        data: { ...loginData, password: '********' }
-      });
+      console.log('\n=== API İsteği Gönderiliyor ===');
+      console.log('Endpoint:', API_ENDPOINTS.AUTH.LOGIN);
+      console.log('Gönderilen veri:', { ...loginData, password: '********' });
 
-      const response = await axios({
-        method: 'POST',
-        url: API_ENDPOINTS.AUTH.LOGIN,
-        data: loginData,
-        ...axiosConfig
-      });
+      const response = await api.post(API_ENDPOINTS.AUTH.LOGIN, loginData);
 
-      console.log('Sunucu yanıtı:', response.data);
+      console.log('\n=== Sunucu Yanıtı ===');
+      console.log('Yanıt:', JSON.stringify(response.data, null, 2));
 
-      const { message, userId, email, role, adminId } = response.data;
+      const { message, userId, email, role, adminId, token } = response.data;
 
-      if (message === "Login successful") {
+      if (message === "Giriş başarılı") {
+        console.log('\n=== Giriş Başarılı ===');
+        console.log('Kullanıcı ID:', userId);
+        console.log('Kullanıcı Email:', email);
+        console.log('Kullanıcı Rol:', role);
+        console.log('Token:', token);
         if (role === 'admin') {
-          setCurrentAdminId(adminId);
+          console.log('Admin ID:', userId);
         }
 
+        // Token'ı header'a ekle
+        setAuthToken(token);
+
+        // Önce userId'yi AsyncStorage'a kaydet
         await AsyncStorage.multiSet([
-          ['userId', userId.toString()],
+          ['userId', userId?.toString() || ''],
           ['userEmail', email],
           ['userRole', role],
-          ...(role === 'admin' ? [['adminId', adminId.toString()]] : [])
+          ['authToken', token],
+          ...(role === 'admin' ? [['adminId', userId.toString()]] : [])
         ]);
 
+        console.log('\n=== AsyncStorage Güncellendi ===');
+        console.log('Kaydedilen userId:', userId);
+        console.log('Kaydedilen email:', email);
+        console.log('Kaydedilen rol:', role);
+        console.log('Kaydedilen token:', token);
         if (role === 'admin') {
+          console.log('Kaydedilen adminId:', userId);
+        }
+
+        // API instance'ına userId ve adminId'yi ekle
+        setCurrentUserId(userId);
+        if (role === 'admin') {
+          setCurrentAdminId(userId);
+        }
+
+        console.log('\n=== API Config Güncellendi ===');
+        console.log('currentUserId ayarlandı:', userId);
+        if (role === 'admin') {
+          console.log('currentAdminId ayarlandı:', userId);
+        }
+
+        // Başarılı giriş sonrası yönlendirme
+        if (role === 'admin') {
+          console.log('\n=== Yönetici Paneline Yönlendiriliyor ===');
           navigation.reset({
             index: 0,
             routes: [{ name: 'AdminNavigator' }],
           });
-        } else {
-          Alert.alert('Hata', 'Yetkisiz giriş denemesi');
+        } else if (role === 'tenant') {
+          console.log('\n=== Kiracı Paneline Yönlendiriliyor ===');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'TenantNavigator' }],
+          });
         }
       } else {
+        console.log('\n=== Giriş Başarısız ===');
+        console.log('Hata mesajı:', message);
         Alert.alert('Hata', 'Geçersiz e-posta veya şifre');
       }
     } catch (error) {
-      console.error('Login hatası:', {
+      console.log('\n=== Giriş Hatası ===');
+      console.error('Hata detayları:', {
         message: error.message,
+        response: error.response?.data,
         endpoint: API_ENDPOINTS.AUTH.LOGIN
       });
 
       if (error.message.includes('Network Error')) {
+        console.log('Bağlantı hatası oluştu');
         Alert.alert(
           'Bağlantı Hatası',
           'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.'
         );
       } else {
+        console.log('API hatası oluştu');
         Alert.alert(
           'Hata',
-          'Giriş yapılırken bir hata oluştu. Lütfen tekrar deneyin.'
+          error.response?.data?.message || 'Giriş yapılırken bir hata oluştu. Lütfen tekrar deneyin.'
         );
       }
     } finally {
+      console.log('\n=== Giriş İşlemi Tamamlandı ===');
       setIsLoading(false);
     }
   };

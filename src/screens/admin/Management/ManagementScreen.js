@@ -760,6 +760,24 @@ const ApartmentsList = ({ apartments, navigation, buildingId }) => {
 
 // ContractModal Component
 const ContractModal = ({ visible, onClose, contractFile }) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleDownload = async () => {
+    if (!contractFile) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      await Linking.openURL(contractFile);
+    } catch (err) {
+      console.error('Error opening contract:', err);
+      setError('Sözleşme açılırken bir hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Modal
       animationType="slide"
@@ -768,28 +786,66 @@ const ContractModal = ({ visible, onClose, contractFile }) => {
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Sözleşme</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Icon name="close" size={24} color="#475569" />
-            </TouchableOpacity>
+        <BlurView
+          intensity={20}
+          tint="dark"
+          style={StyleSheet.absoluteFill}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Sözleşme Detayları</Text>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Icon name="close" size={24} color="#475569" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.modalBody}>
+              {contractFile ? (
+                <View style={styles.contractContainer}>
+                  <View style={styles.contractIconContainer}>
+                    <Icon name="file-document" size={48} color="#0369A1" />
+                  </View>
+                  <Text style={styles.contractTitle}>Sözleşme Dosyası</Text>
+                  <Text style={styles.contractSubtitle}>
+                    Sözleşmeyi görüntülemek veya indirmek için aşağıdaki butonu kullanabilirsiniz.
+                  </Text>
+                  
+                  <TouchableOpacity
+                    style={styles.downloadButton}
+                    onPress={handleDownload}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Icon name="download" size={20} color="#FFFFFF" />
+                        <Text style={styles.downloadButtonText}>Sözleşmeyi Aç</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+
+                  {error && (
+                    <View style={styles.errorContainer}>
+                      <Icon name="alert-circle" size={20} color="#EF4444" />
+                      <Text style={styles.errorText}>{error}</Text>
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <View style={styles.emptyContainer}>
+                  <View style={styles.emptyIconContainer}>
+                    <Icon name="file-alert" size={48} color="#EF4444" />
+                  </View>
+                  <Text style={styles.emptyTitle}>Sözleşme Bulunamadı</Text>
+                  <Text style={styles.emptySubtitle}>
+                    Bu kiracı için henüz bir sözleşme yüklenmemiş.
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
-          
-          <View style={styles.modalBody}>
-            {contractFile ? (
-              <View style={styles.contractContainer}>
-                <Icon name="file-document" size={48} color="#3498DB" />
-                <Text style={styles.contractText}>Sözleşme görüntülenemiyor.</Text>
-              </View>
-            ) : (
-              <View style={styles.contractContainer}>
-                <Icon name="file-alert" size={48} color="#EF4444" />
-                <Text style={styles.contractText}>Sözleşme bilgisi bulunamadı.</Text>
-              </View>
-            )}
-          </View>
-        </View>
+        </BlurView>
       </View>
     </Modal>
   );
@@ -1242,32 +1298,72 @@ const TenantsList = ({ navigation, buildingId }) => {
   const totalPages = Math.ceil((filteredTenants?.length || 0) / itemsPerPage);
 
   const renderTenantItem = ({ item }) => (
-    <Surface style={[styles.apartmentItemNew]}>
-      <View style={styles.tenantItemContent}>
-        {/* ... existing code ... */}
-        <View style={[styles.actionButtons, { marginBottom: 16 }]}>
+    <Surface style={[styles.tenantItemNew]}>
+      <View style={styles.tenantItemContentNew}>
+        {/* Tenant Header */}
+        <View style={styles.tenantHeaderNew}>
+          <View style={styles.tenantAvatarContainerNew}>
+            {item.profileImage ? (
+              <Avatar.Image 
+                size={48} 
+                source={{ uri: item.profileImage }}
+                style={styles.tenantAvatarNew}
+              />
+            ) : (
+              <Avatar.Text 
+                size={48} 
+                label={item.fullName?.split(' ').map(n => n[0]).join('')}
+                style={styles.tenantAvatarNew}
+                labelStyle={styles.tenantAvatarLabelNew}
+              />
+            )}
+          </View>
+          <View style={styles.tenantMainInfoNew}>
+            <Text style={styles.tenantNameNew}>{item.fullName}</Text>
+            <View style={styles.tenantBadgeContainerNew}>
+              <View style={styles.tenantBadgeNew}>
+                <Text style={styles.tenantBadgeTextNew}>Daire {item.apartmentNumber}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Contact Information */}
+        <View style={styles.tenantContactInfo}>
+          <View style={styles.contactItem}>
+            <Icon name="phone" size={20} color="#0369A1" />
+            <Text style={styles.contactText}>{item.phoneNumber}</Text>
+          </View>
+          <View style={styles.contactItem}>
+            <Icon name="email" size={20} color="#0369A1" />
+            <Text style={styles.contactText}>{item.email}</Text>
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.tenantActionsNew}>
           <TouchableOpacity
-            style={[styles.actionButton, { marginBottom: 8 }]}
+            style={[styles.actionButtonNew, { backgroundColor: '#E0F2FE' }]}
             onPress={() => handleCall(item.phoneNumber)}
           >
-            <MaterialCommunityIcons name="phone" size={20} color="#0369A1" />
-            <Text style={styles.actionButtonText}>Ara</Text>
+            <Icon name="phone" size={20} color="#0369A1" />
+            <Text style={[styles.actionButtonTextNew, { color: '#0369A1' }]}>Ara</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, { marginBottom: 8 }]}
+            style={[styles.actionButtonNew, { backgroundColor: '#E0F2FE' }]}
             onPress={() => handleEmail(item.email)}
           >
-            <MaterialCommunityIcons name="email" size={20} color="#0369A1" />
-            <Text style={styles.actionButtonText}>E-posta</Text>
+            <Icon name="email" size={20} color="#0369A1" />
+            <Text style={[styles.actionButtonTextNew, { color: '#0369A1' }]}>E-posta</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, { marginBottom: 8 }]}
+            style={[styles.actionButtonNew, { backgroundColor: '#E0F2FE' }]}
             onPress={() => handleContract(item.contractFile)}
           >
-            <MaterialCommunityIcons name="file-document" size={20} color="#0369A1" />
-            <Text style={styles.actionButtonText}>Sözleşme</Text>
+            <Icon name="file-document" size={20} color="#0369A1" />
+            <Text style={[styles.actionButtonTextNew, { color: '#0369A1' }]}>Sözleşme</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -2205,16 +2301,16 @@ const styles = StyleSheet.create({
   },
   tenantItemNew: {
     borderRadius: 12,
-    backgroundColor: Colors.surface,
+    backgroundColor: '#FFFFFF',
     marginHorizontal: 2,
     marginVertical: 4,
     overflow: 'hidden',
-    height: 170,
+    height: 200,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   tenantItemContentNew: {
-    padding: 12,
+    padding: 16,
     height: '100%',
     flexDirection: 'column',
     justifyContent: 'space-between',
@@ -2222,79 +2318,93 @@ const styles = StyleSheet.create({
   tenantHeaderNew: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    marginBottom: 16,
   },
   tenantAvatarContainerNew: {
-    position: 'relative',
     marginRight: 12,
   },
   tenantAvatarNew: {
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: '#E0F2FE',
   },
   tenantAvatarLabelNew: {
     fontSize: 16,
     fontFamily: Fonts.urbanist.bold,
-    color: Colors.primary,
+    color: '#0369A1',
   },
   tenantMainInfoNew: {
     flex: 1,
   },
   tenantNameNew: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: Fonts.urbanist.bold,
-    color: Colors.text,
+    color: '#1E293B',
     marginBottom: 4,
   },
   tenantBadgeContainerNew: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   tenantBadgeNew: {
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: '#E0F2FE',
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 4,
     borderRadius: 6,
   },
   tenantBadgeTextNew: {
     fontSize: 12,
     fontFamily: Fonts.urbanist.semiBold,
-    color: Colors.primary,
+    color: '#0369A1',
   },
-  tenantDateNew: {
-    fontSize: 12,
+  tenantContactInfo: {
+    marginBottom: 16,
+  },
+  contactItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  contactText: {
+    fontSize: 14,
     fontFamily: Fonts.urbanist.medium,
-    color: Colors.textSecondary,
+    color: '#475569',
+    marginLeft: 8,
   },
   tenantActionsNew: {
     flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
   },
-  tenantActionButtonNew: {
-    padding: 8,
+  actionButtonNew: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: Colors.primaryLight,
+    gap: 6,
   },
-  tenantContactNew: {
-    fontSize: 12,
-    fontFamily: Fonts.urbanist.medium,
-    color: Colors.textSecondary,
+  actionButtonTextNew: {
+    fontSize: 14,
+    fontFamily: Fonts.urbanist.semiBold,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
+    width: '90%',
+    maxWidth: 400,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
+    overflow: 'hidden',
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
-    backdropFilter: 'blur(10px)',
+    margin: 'auto',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -2302,13 +2412,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderBottomColor: '#E2E8F0',
   },
   modalTitle: {
     fontSize: 18,
     fontFamily: Fonts.urbanist.bold,
-    color: '#334155',
+    color: '#1E293B',
   },
   closeButton: {
     padding: 4,
@@ -2318,15 +2427,86 @@ const styles = StyleSheet.create({
   },
   contractContainer: {
     alignItems: 'center',
+  },
+  contractIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#E0F2FE',
     justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  contractTitle: {
+    fontSize: 20,
+    fontFamily: Fonts.urbanist.bold,
+    color: '#1E293B',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  contractSubtitle: {
+    fontSize: 14,
+    fontFamily: Fonts.urbanist.regular,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  downloadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0369A1',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    gap: 8,
+  },
+  downloadButtonText: {
+    fontSize: 16,
+    fontFamily: Fonts.urbanist.semiBold,
+    color: '#FFFFFF',
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+    gap: 8,
+  },
+  errorText: {
+    fontSize: 14,
+    fontFamily: Fonts.urbanist.medium,
+    color: '#EF4444',
+  },
+  emptyContainer: {
+    alignItems: 'center',
     padding: 24,
   },
-  contractText: {
-    marginTop: 16,
-    fontSize: 16,
-    fontFamily: Fonts.urbanist.medium,
-    color: '#475569',
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontFamily: Fonts.urbanist.bold,
+    color: '#1E293B',
+    marginBottom: 8,
     textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    fontFamily: Fonts.urbanist.regular,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
   },
   actionButton: {
     width: 32,

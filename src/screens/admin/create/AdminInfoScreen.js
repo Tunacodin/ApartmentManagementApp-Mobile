@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Dimensions,
   StatusBar,
+  ActivityIndicator,
 } from "react-native";
 import LottieView from "lottie-react-native";
 import { TextInput as PaperInput, Surface } from "react-native-paper";
@@ -21,7 +22,8 @@ import animate from "../../../assets/json/animInformation.json";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import { LinearGradient } from 'expo-linear-gradient';
 import axios from "axios";
-import { API_ENDPOINTS, axiosConfig } from '../../../config/apiConfig';
+import { API_ENDPOINTS, axiosConfig, getAdminCreateFormat, validateAdminData, handleApiError } from '../../../config/apiConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Axios instance oluştur
 const api = axios.create({
@@ -69,10 +71,107 @@ const AdminInfoScreen = ({ navigation }) => {
   const [password, setPassword] = useState("");
   const scrollViewRef = useRef(null);
   const { height: screenHeight } = Dimensions.get('window');
+  const [isSaving, setIsSaving] = useState(false);
+  const [errors, setErrors] = useState({});
 
-  const handleSubmit = () => {
-    // Doğrudan ApartmentInfo ekranına yönlendir
-    navigation.navigate('ApartmentInfo');
+  const validateForm = () => {
+    const newErrors = {};
+    
+    // Ad kontrolü
+    if (!firstName.trim()) {
+      newErrors.firstName = 'Ad alanı zorunludur';
+    } else if (firstName.length < 2) {
+      newErrors.firstName = 'Ad en az 2 karakter olmalıdır';
+    }
+
+    // Soyad kontrolü
+    if (!lastName.trim()) {
+      newErrors.lastName = 'Soyad alanı zorunludur';
+    } else if (lastName.length < 2) {
+      newErrors.lastName = 'Soyad en az 2 karakter olmalıdır';
+    }
+
+    // E-posta kontrolü
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim()) {
+      newErrors.email = 'E-posta alanı zorunludur';
+    } else if (!emailRegex.test(email)) {
+      newErrors.email = 'Geçerli bir e-posta adresi giriniz';
+    }
+
+    // Telefon kontrolü
+    const phoneRegex = /^[0-9]{10,11}$/;
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (!phone.trim()) {
+      newErrors.phone = 'Telefon numarası zorunludur';
+    } else if (!phoneRegex.test(cleanPhone)) {
+      newErrors.phone = 'Geçerli bir telefon numarası giriniz';
+    }
+
+    // Şifre kontrolü
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d_!@#$%^&*(),.?":{}|<>]{6,}$/;
+    if (!password) {
+      newErrors.password = 'Şifre alanı zorunludur';
+    } else if (!passwordRegex.test(password)) {
+      newErrors.password = 'Şifre en az 6 karakter uzunluğunda olmalı ve en az 1 büyük harf, 1 küçük harf ve 1 rakam içermelidir';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    try {
+      setIsSaving(true);
+      
+      // Form validasyonu
+      if (!validateForm()) {
+        Alert.alert(
+          'Validasyon Hatası',
+          'Lütfen tüm alanları doğru şekilde doldurunuz.',
+          [{ text: 'Tamam' }]
+        );
+        return;
+      }
+
+      // Form verilerini hazırla
+      const adminData = {
+        fullName: `${firstName} ${lastName}`,
+        email,
+        phoneNumber: phone,
+        password,
+      };
+
+      // Test aşamasında veritabanına kaydetme
+      Alert.alert(
+        'Başarılı',
+        'Yönetici bilgileri doğrulandı. Test aşamasında veritabanına kaydedilmedi.',
+        [
+          {
+            text: 'Tamam',
+            onPress: () => navigation.navigate('ApartmentInfo')
+          }
+        ]
+      );
+
+      // Gerçek API entegrasyonu için hazır kod (şu an yorum satırı olarak bırakıldı)
+      /*
+      const response = await axios.post(API_ENDPOINTS.ADMIN.CREATE, formattedData, axiosConfig);
+      if (response.data) {
+        await AsyncStorage.setItem('currentAdminId', response.data.id.toString());
+        Alert.alert(
+          'Başarılı',
+          'Yönetici bilgileri başarıyla kaydedildi.',
+          [{ text: 'Tamam', onPress: () => navigation.navigate('ApartmentInfo') }]
+        );
+      }
+      */
+    } catch (error) {
+      const errorResponse = handleApiError(error);
+      Alert.alert('Hata', errorResponse.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const isFormValid = firstName && lastName && email && phone && password;
@@ -135,14 +234,19 @@ const AdminInfoScreen = ({ navigation }) => {
                   mode="outlined"
                   label="Ad"
                   value={firstName}
-                  onChangeText={setFirstName}
+                  onChangeText={(text) => {
+                    setFirstName(text);
+                    setErrors(prev => ({ ...prev, firstName: undefined }));
+                  }}
                   style={styles.input}
-                  outlineColor="#E2E8F0"
-                  activeOutlineColor={Colors.primary}
+                  outlineColor={errors.firstName ? Colors.error : "#E2E8F0"}
+                  activeOutlineColor={errors.firstName ? Colors.error : Colors.primary}
+                  error={!!errors.firstName}
                   theme={{ colors: { background: '#F8FAFC' }}}
                   onFocus={() => handleInputFocus(0)}
                 />
               </View>
+              {errors.firstName && <Text style={styles.errorText}>{errors.firstName}</Text>}
 
               <View style={styles.inputContainer}>
                 <View style={styles.iconWrapper}>
@@ -152,14 +256,19 @@ const AdminInfoScreen = ({ navigation }) => {
                   mode="outlined"
                   label="Soyad"
                   value={lastName}
-                  onChangeText={setLastName}
+                  onChangeText={(text) => {
+                    setLastName(text);
+                    setErrors(prev => ({ ...prev, lastName: undefined }));
+                  }}
                   style={styles.input}
-                  outlineColor="#E2E8F0"
-                  activeOutlineColor={Colors.primary}
+                  outlineColor={errors.lastName ? Colors.error : "#E2E8F0"}
+                  activeOutlineColor={errors.lastName ? Colors.error : Colors.primary}
+                  error={!!errors.lastName}
                   theme={{ colors: { background: '#F8FAFC' }}}
                   onFocus={() => handleInputFocus(1)}
                 />
               </View>
+              {errors.lastName && <Text style={styles.errorText}>{errors.lastName}</Text>}
 
               <View style={styles.inputContainer}>
                 <View style={styles.iconWrapper}>
@@ -169,16 +278,21 @@ const AdminInfoScreen = ({ navigation }) => {
                   mode="outlined"
                   label="E-posta"
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    setErrors(prev => ({ ...prev, email: undefined }));
+                  }}
                   style={styles.input}
-                  outlineColor="#E2E8F0"
-                  activeOutlineColor={Colors.primary}
+                  outlineColor={errors.email ? Colors.error : "#E2E8F0"}
+                  activeOutlineColor={errors.email ? Colors.error : Colors.primary}
+                  error={!!errors.email}
                   theme={{ colors: { background: '#F8FAFC' }}}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   onFocus={() => handleInputFocus(2)}
                 />
               </View>
+              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
 
               <View style={styles.inputContainer}>
                 <View style={styles.iconWrapper}>
@@ -188,15 +302,20 @@ const AdminInfoScreen = ({ navigation }) => {
                   mode="outlined"
                   label="Telefon Numarası"
                   value={phone}
-                  onChangeText={setPhone}
+                  onChangeText={(text) => {
+                    setPhone(text);
+                    setErrors(prev => ({ ...prev, phone: undefined }));
+                  }}
                   style={styles.input}
-                  outlineColor="#E2E8F0"
-                  activeOutlineColor={Colors.primary}
+                  outlineColor={errors.phone ? Colors.error : "#E2E8F0"}
+                  activeOutlineColor={errors.phone ? Colors.error : Colors.primary}
+                  error={!!errors.phone}
                   theme={{ colors: { background: '#F8FAFC' }}}
                   keyboardType="phone-pad"
                   onFocus={() => handleInputFocus(3)}
                 />
               </View>
+              {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
 
               <View style={styles.inputContainer}>
                 <View style={styles.iconWrapper}>
@@ -206,26 +325,38 @@ const AdminInfoScreen = ({ navigation }) => {
                   mode="outlined"
                   label="Şifre"
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    setErrors(prev => ({ ...prev, password: undefined }));
+                  }}
                   secureTextEntry
                   style={styles.input}
-                  outlineColor="#E2E8F0"
-                  activeOutlineColor={Colors.primary}
+                  outlineColor={errors.password ? Colors.error : "#E2E8F0"}
+                  activeOutlineColor={errors.password ? Colors.error : Colors.primary}
+                  error={!!errors.password}
                   theme={{ colors: { background: '#F8FAFC' }}}
                   onFocus={() => handleInputFocus(4)}
                 />
               </View>
+              {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
             </View>
 
             <View style={styles.buttonContainer}>
               <TouchableOpacity
-                style={styles.submitButton}
+                style={[styles.submitButton, isSaving && styles.submitButtonDisabled]}
                 onPress={handleSubmit}
+                disabled={isSaving || !isFormValid}
               >
-                <Text style={styles.submitButtonText}>
-                  Apartman Bilgilerine Geç
-                </Text>
-                <MaterialIcons name="arrow-forward" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
+                {isSaving ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Text style={styles.submitButtonText}>
+                      Kaydet ve Devam Et
+                    </Text>
+                    <MaterialIcons name="arrow-forward" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
+                  </>
+                )}
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -344,6 +475,17 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontFamily: Fonts.urbanist.bold,
+  },
+  submitButtonDisabled: {
+    opacity: 0.7,
+  },
+  errorText: {
+    color: Colors.error,
+    fontSize: 12,
+    fontFamily: Fonts.urbanist.regular,
+    marginTop: -12,
+    marginBottom: 8,
+    marginLeft: 52,
   },
 });
 
