@@ -45,7 +45,6 @@ function AdminDashboardNavigator() {
       }}
     >
       <AdminDashboardStack.Screen name="Dashboard" component={DashboardScreen} />
-      {/* Diğer dashboard ekranları buraya eklenebilir */}
     </AdminDashboardStack.Navigator>
   );
 }

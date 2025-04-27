@@ -20,19 +20,16 @@ import LottieView from "lottie-react-native";
 import animPassword from '../../assets/json/animPassword.json';
 import { MaterialIcons } from "@expo/vector-icons";
 import { Fonts, Colors, Gradients } from '../../constants';
-import { api, API_ENDPOINTS } from '../../config/apiConfig';
+import { api, API_ENDPOINTS, API_BASE_URL } from '../../config/apiConfig';
 
 const { width } = Dimensions.get('window');
 
 const ForgotPasswordScreen = ({ route, navigation }) => {
   const { role } = route.params;
   const [email, setEmail] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isEmailSent, setIsEmailSent] = useState(false);
-  const [showResetForm, setShowResetForm] = useState(false);
 
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -56,12 +53,11 @@ const ForgotPasswordScreen = ({ route, navigation }) => {
       setIsLoading(true);
       
       const response = await api.post(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, {
-        email: email
+        email: email,
+        newPassword: "" // Boş şifre gönderiyoruz çünkü henüz yeni şifre belirlenmedi
       });
 
       if (response.data.success) {
-        setIsEmailSent(true);
-        setShowResetForm(true);
         Alert.alert(
           'Başarılı!',
           'Doğrulama kodu e-posta adresinize gönderildi.',
@@ -81,6 +77,16 @@ const ForgotPasswordScreen = ({ route, navigation }) => {
   const handleResetPassword = async () => {
     setErrorMessage('');
 
+    if (!email) {
+      setErrorMessage('Lütfen e-posta adresinizi girin.');
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      setErrorMessage('Lütfen geçerli bir e-posta adresi girin.');
+      return;
+    }
+
     if (!newPassword) {
       setErrorMessage('Lütfen yeni şifrenizi girin.');
       return;
@@ -94,28 +100,83 @@ const ForgotPasswordScreen = ({ route, navigation }) => {
     try {
       setIsLoading(true);
       
-      const response = await api.post(API_ENDPOINTS.AUTH.RESET_PASSWORD, {
+      const requestData = {
         email: email,
         newPassword: newPassword
-      });
+      };
 
-      if (response.data.success) {
+      console.log('\n=== API İsteği Detayları ===');
+      console.log('Base URL:', API_BASE_URL);
+      console.log('Endpoint:', API_ENDPOINTS.AUTH.RESET_PASSWORD);
+      console.log('Tam URL:', API_BASE_URL + API_ENDPOINTS.AUTH.RESET_PASSWORD);
+      console.log('Gönderilen veri:', requestData);
+      
+      const response = await api.post(API_ENDPOINTS.AUTH.RESET_PASSWORD, requestData);
+
+      console.log('Sunucu yanıtı:', response.data);
+
+      // Başarılı yanıt kontrolü
+      if (typeof response.data === 'string' && response.data.includes('başarıyla')) {
         Alert.alert(
           'Başarılı!',
           'Şifreniz başarıyla sıfırlandı.',
           [
             {
               text: 'Tamam',
-              onPress: () => navigation.navigate('Login', { role })
+              onPress: () => navigation.navigate('LoginScreen', { role })
             }
           ]
         );
+      } else if (response.data && response.data.success) {
+      Alert.alert(
+        'Başarılı!',
+          'Şifreniz başarıyla sıfırlandı.',
+        [
+          {
+            text: 'Tamam',
+              onPress: () => navigation.navigate('LoginScreen', { role })
+          }
+        ]
+      );
       } else {
-        throw new Error(response.data.message || 'Şifre sıfırlama işlemi başarısız oldu.');
+        // Handle specific error using errorCode
+        switch(response.data?.errorCode) {
+          case 'USER_NOT_FOUND':
+            setErrorMessage('Bu e-posta adresi ile kayıtlı kullanıcı bulunamadı.');
+            break;
+          case 'INVALID_PASSWORD_FORMAT':
+            setErrorMessage('Şifre formatı geçersiz. Lütfen en az 6 karakter kullanın.');
+            break;
+          case 'PASSWORD_RESET_FAILED':
+            setErrorMessage('Şifre sıfırlama işlemi başarısız oldu. Lütfen tekrar deneyin.');
+            break;
+          default:
+            setErrorMessage(response.data?.message || 'Şifre sıfırlama işlemi başarısız oldu.');
+        }
       }
     } catch (error) {
-      console.error('Password reset error:', error);
-      setErrorMessage(error.response?.data?.message || 'Bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+      console.error('Hata detayları:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers,
+        config: error.config
+      });
+
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error('Error response:', error.response.data);
+        setErrorMessage(error.response.data.message || 'Sunucu hatası oluştu.');
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('No response received:', error.request);
+        setErrorMessage('Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.');
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error('Error:', error.message);
+        setErrorMessage('Bir hata oluştu. Lütfen tekrar deneyin.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -144,7 +205,7 @@ const ForgotPasswordScreen = ({ route, navigation }) => {
             <LottieView
               source={animPassword}
               autoPlay
-              loop={!isEmailSent}
+              loop={true}
               style={styles.animation}
             />
           </View>
@@ -152,7 +213,7 @@ const ForgotPasswordScreen = ({ route, navigation }) => {
             {role === 'admin' ? 'Yönetici Şifre Sıfırlama' : 'Kiracı Şifre Sıfırlama'}
           </Text>
           <Text style={styles.headerSubtitle}>
-            {showResetForm ? 'Yeni şifrenizi belirleyin' : 'Şifrenizi sıfırlamak için e-posta adresinizi girin'}
+            Yeni şifrenizi belirlemek için e-posta adresinizi girin
           </Text>
         </View>
       </LinearGradient>
@@ -185,64 +246,35 @@ const ForgotPasswordScreen = ({ route, navigation }) => {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 error={!!errorMessage}
-                disabled={isLoading || showResetForm}
+                disabled={isLoading}
                 left={<PaperInput.Icon name="email" color={Colors.primary} />}
               />
             </View>
 
-            {showResetForm && (
-              <>
-                <View style={styles.inputWrapper}>
-                  <MaterialIcons
-                    name="vpn-key"
-                    size={24}
-                    color={Colors.primary}
-                    style={styles.inputIcon}
-                  />
-                  <PaperInput
-                    mode="outlined"
-                    label="Doğrulama Kodu"
-                    value={verificationCode}
-                    onChangeText={(text) => {
-                      setVerificationCode(text);
-                      setErrorMessage('');
-                    }}
-                    style={styles.input}
-                    outlineColor={Colors.border}
-                    activeOutlineColor={Colors.primary}
-                    keyboardType="numeric"
-                    error={!!errorMessage}
-                    disabled={isLoading}
-                    left={<PaperInput.Icon name="key" color={Colors.primary} />}
-                  />
-                </View>
-
-                <View style={styles.inputWrapper}>
-                  <MaterialIcons
-                    name="lock"
-                    size={24}
-                    color={Colors.primary}
-                    style={styles.inputIcon}
-                  />
-                  <PaperInput
-                    mode="outlined"
-                    label="Yeni Şifre"
-                    value={newPassword}
-                    onChangeText={(text) => {
-                      setNewPassword(text);
-                      setErrorMessage('');
-                    }}
-                    style={styles.input}
-                    outlineColor={Colors.border}
-                    activeOutlineColor={Colors.primary}
-                    secureTextEntry
-                    error={!!errorMessage}
-                    disabled={isLoading}
-                    left={<PaperInput.Icon name="lock" color={Colors.primary} />}
-                  />
-                </View>
-              </>
-            )}
+            <View style={styles.inputWrapper}>
+              <MaterialIcons
+                name="lock"
+                size={24}
+                color={Colors.primary}
+                style={styles.inputIcon}
+              />
+              <PaperInput
+                mode="outlined"
+                label="Yeni Şifre"
+                value={newPassword}
+                onChangeText={(text) => {
+                  setNewPassword(text);
+                  setErrorMessage('');
+                }}
+                style={styles.input}
+                outlineColor={Colors.border}
+                activeOutlineColor={Colors.primary}
+                secureTextEntry
+                error={!!errorMessage}
+                disabled={isLoading}
+                left={<PaperInput.Icon name="lock" color={Colors.primary} />}
+              />
+            </View>
 
             {errorMessage ? (
               <View style={styles.errorContainer}>
@@ -256,7 +288,7 @@ const ForgotPasswordScreen = ({ route, navigation }) => {
                 styles.submitButton,
                 isLoading && styles.submitButtonDisabled
               ]}
-              onPress={showResetForm ? handleResetPassword : handleSendVerificationCode}
+              onPress={handleResetPassword}
               disabled={isLoading}
             >
               <LinearGradient
@@ -272,9 +304,7 @@ const ForgotPasswordScreen = ({ route, navigation }) => {
                   </View>
                 ) : (
                   <View style={styles.submitButtonContent}>
-                    <Text style={styles.submitButtonText}>
-                      {showResetForm ? 'Şifremi Sıfırla' : 'Doğrulama Kodu Gönder'}
-                    </Text>
+                    <Text style={styles.submitButtonText}>Şifremi Sıfırla</Text>
                     <MaterialIcons name="arrow-forward" size={24} color="#FFFFFF" />
                   </View>
                 )}

@@ -1,5 +1,5 @@
 // Base URL'i tanımla
-export const API_BASE_URL = "https://ff67-78-187-59-29.ngrok-free.app/api";
+export const API_BASE_URL = "https://9d40-212-2-212-116.ngrok-free.app/api";
 
 // Axios instance oluştur
 import axios from 'axios';
@@ -39,7 +39,6 @@ export const API_ENDPOINTS = {
     AUTH: {
         LOGIN: `${API_BASE_URL}/User/login`,
         REGISTER: `${API_BASE_URL}/Auth/register`,
-        FORGOT_PASSWORD: `${API_BASE_URL}/User/reset-password`,
         RESET_PASSWORD: `${API_BASE_URL}/User/reset-password`,
         VERIFY_EMAIL: `${API_BASE_URL}/Auth/verify-email`,
         REFRESH_TOKEN: `${API_BASE_URL}/Auth/refresh-token`,
@@ -189,8 +188,9 @@ export const API_ENDPOINTS = {
         MARK_ALL_NOTIFICATIONS_READ: (userId = currentUserId) => `${API_BASE_URL}/notifications/${userId}/read-all`,
         ACTIVITIES: (userId = currentUserId) => `${API_BASE_URL}/Tenant/${userId}/activities`,
         PAYMENT_HISTORY: (userId = currentUserId) => `${API_BASE_URL}/Tenant/${userId}/payments`,
-        MAKE_PAYMENT: (paymentId) => `${API_BASE_URL}/Tenant/payments/${paymentId}/pay`,
-        RECENT_PAYMENTS: (userId = currentUserId) => `${API_BASE_URL}/Tenant/${userId}/payments`
+        MAKE_PAYMENT: (userId, paymentId) => `${API_BASE_URL}/Tenant/${userId}/payments/${paymentId}/pay`,
+        RECENT_PAYMENTS: (userId = currentUserId) => `${API_BASE_URL}/Tenant/${userId}/payments`,
+        NEXT_PAYMENTS: (userId = currentUserId) => `${API_BASE_URL}/Tenant/${userId}/next-payments`
     },
 
     // Owner endpoints

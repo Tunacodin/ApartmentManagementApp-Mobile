@@ -35,33 +35,36 @@ const DashboardScreen = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigation = useNavigation();
+  const [nextPayments, setNextPayments] = useState([]);
+  const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [paymentForm, setPaymentForm] = useState({
+    paymentMethod: '',
+    cardNumber: '',
+    cardHolderName: '',
+    expiryDate: '',
+    cvv: ''
+  });
 
   const fetchDashboardData = async () => {
     try {
-      const userId = getCurrentUserId();
-      console.warn('\n=== Dashboard Verileri Çekiliyor ===');
-      console.warn('Kullanıcı ID:', userId);
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        throw new Error('Kullanıcı ID bulunamadı');
+      }
+
+      console.log('\n=== Dashboard Verileri Çekiliyor ===');
+      console.log('Kullanıcı ID:', userId);
 
       const token = await AsyncStorage.getItem('authToken');
-      console.warn('Token:', token ? 'Mevcut' : 'Bulunamadı');
+      console.log('Token:', token ? 'Mevcut' : 'Bulunamadı');
       
       if (!token) {
         throw new Error('Token bulunamadı');
       }
 
-      // Token decode işlemi
-      try {
-        const decoded = jwt_decode.jwtDecode(token);
-        console.warn('Token içeriği:', decoded);
-        console.warn('Token geçerlilik süresi:', new Date(decoded.exp * 1000));
-        console.warn('Kalan süre:', (decoded.exp * 1000 - Date.now()) / 1000 / 60, 'dakika');
-      } catch (decodeError) {
-        console.error('Token decode hatası:', decodeError);
-        throw new Error('Token geçersiz veya bozuk');
-      }
-
-      console.warn('\nAPI İsteği Yapılıyor...');
-      console.warn('Endpoint:', API_ENDPOINTS.TENANT.DASHBOARD(userId));
+      console.log('\nAPI İsteği Yapılıyor...');
+      console.log('Endpoint:', API_ENDPOINTS.TENANT.DASHBOARD(userId));
       
       const response = await axios.get(
         API_ENDPOINTS.TENANT.DASHBOARD(userId),
@@ -73,16 +76,16 @@ const DashboardScreen = () => {
         }
       );
 
-      console.warn('\n=== API Yanıtı ===');
-      console.warn('Status:', response.status);
-      console.warn('Data:', response.data);
+      console.log('\n=== API Yanıtı ===');
+      console.log('Status:', response.status);
+      console.log('Data:', response.data);
 
       if (response.data.success) {
         const data = response.data.data;
-        console.warn('\n=== Daire Bilgileri ===');
-        console.warn('Daire ID:', data.apartment?.id);
-        console.warn('Bina ID:', data.building?.id);
-        console.warn('Daire No:', data.apartment?.unitNumber);
+        console.log('\n=== Daire Bilgileri ===');
+        console.log('Daire ID:', data.apartment?.id);
+        console.log('Bina ID:', data.building?.id);
+        console.log('Daire No:', data.apartment?.unitNumber);
 
         if (!data.building?.id) {
           console.error('⚠️ Bina ID bulunamadı!');
@@ -134,14 +137,44 @@ const DashboardScreen = () => {
             },
           ]
         );
+      } else if (error.response?.status === 400) {
+        Alert.alert(
+          'Veri Hatası',
+          'Dashboard verileri alınırken bir hata oluştu. Lütfen daha sonra tekrar deneyin.',
+          [{ text: 'Tamam' }]
+        );
       } else {
         Alert.alert('Hata', 'Veriler yüklenirken bir hata oluştu. Lütfen tekrar deneyin.');
       }
     }
   };
 
+  const fetchNextPayments = async () => {
+    try {
+      const userId = getCurrentUserId();
+      const token = await AsyncStorage.getItem('authToken');
+      
+      const response = await axios.get(
+        `${API_ENDPOINTS.BASE_URL}/Tenant/${userId}/next-payments`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.data.success) {
+        setNextPayments(response.data.data);
+      }
+    } catch (error) {
+      console.error('Ödeme bilgileri alınırken hata:', error);
+    }
+  };
+
   useEffect(() => {
     fetchDashboardData();
+    fetchNextPayments();
   }, []);
 
   const onRefresh = () => {
@@ -337,8 +370,169 @@ const DashboardScreen = () => {
     );
   };
 
+  const handlePayment = async (payment) => {
+    setSelectedPayment(payment);
+    setIsPaymentModalVisible(true);
+  };
+
+  const handlePaymentSubmit = async () => {
+    try {
+      const userId = getCurrentUserId();
+      const token = await AsyncStorage.getItem('authToken');
+      
+      const response = await axios.post(
+        `${API_ENDPOINTS.BASE_URL}/Tenant/${userId}/payments/${selectedPayment.id}/pay`,
+        paymentForm,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.data.success) {
+        Alert.alert('Başarılı', 'Ödeme işlemi başarıyla tamamlandı.');
+        setIsPaymentModalVisible(false);
+        fetchNextPayments();
+      }
+    } catch (error) {
+      console.error('Ödeme işlemi sırasında hata:', error);
+      Alert.alert('Hata', 'Ödeme işlemi sırasında bir hata oluştu.');
+    }
+  };
+
+  const renderNextPaymentsCard = () => {
+    if (!nextPayments.length) return null;
+
+    return (
+      <LinearGradient
+        colors={['rgba(99, 102, 241, 0.1)', 'rgba(139, 92, 246, 0.1)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.card}
+      >
+        <BlurView intensity={20} tint="light" style={styles.cardBlur}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="cash" size={24} color="#6366F1" />
+            <Text style={styles.cardTitle}>Sıradaki Ödemeler</Text>
+          </View>
+          <View style={styles.cardContent}>
+            {nextPayments.map((payment, index) => (
+              <View key={payment.id} style={styles.paymentItem}>
+                <View style={styles.paymentInfo}>
+                  <Text style={styles.paymentTitle}>{payment.description}</Text>
+                  <Text style={styles.paymentAmount}>{formatCurrency(payment.amount)}</Text>
+                  <Text style={styles.paymentDate}>Son Ödeme: {formatDate(payment.dueDate)}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.payButton}
+                  onPress={() => handlePayment(payment)}
+                >
+                  <Text style={styles.payButtonText}>Öde</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        </BlurView>
+      </LinearGradient>
+    );
+  };
+
+  const renderPaymentModal = () => (
+    <Modal
+      visible={isPaymentModalVisible}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setIsPaymentModalVisible(false)}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalContainer}
+      >
+        <BlurView intensity={50} tint="light" style={styles.modalBlur}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Ödeme Yap</Text>
+              <TouchableOpacity
+                onPress={() => setIsPaymentModalVisible(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="#1E293B" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Kart Numarası</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="1234 5678 9012 3456"
+                value={paymentForm.cardNumber}
+                onChangeText={(text) => setPaymentForm({...paymentForm, cardNumber: text})}
+                keyboardType="numeric"
+                maxLength={16}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Kart Sahibi</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ad Soyad"
+                value={paymentForm.cardHolderName}
+                onChangeText={(text) => setPaymentForm({...paymentForm, cardHolderName: text})}
+              />
+            </View>
+
+            <View style={styles.rowInputContainer}>
+              <View style={[styles.inputContainer, {flex: 1, marginRight: 10}]}>
+                <Text style={styles.inputLabel}>Son Kullanma Tarihi</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="MM/YY"
+                  value={paymentForm.expiryDate}
+                  onChangeText={(text) => setPaymentForm({...paymentForm, expiryDate: text})}
+                  maxLength={5}
+                />
+              </View>
+              <View style={[styles.inputContainer, {flex: 1}]}>
+                <Text style={styles.inputLabel}>CVV</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="123"
+                  value={paymentForm.cvv}
+                  onChangeText={(text) => setPaymentForm({...paymentForm, cvv: text})}
+                  keyboardType="numeric"
+                  maxLength={3}
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+              onPress={handlePaymentSubmit}
+              disabled={isLoading}
+            >
+              <LinearGradient
+                colors={['#6366F1', '#8B5CF6']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.submitButtonGradient}
+              >
+                <Text style={styles.submitButtonText}>
+                  {isLoading ? 'Ödeniyor...' : `${formatCurrency(selectedPayment?.amount)} Öde`}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </BlurView>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+
   const data = [
     { id: 'profile', render: renderProfileCard },
+    { id: 'nextPayments', render: renderNextPaymentsCard },
     { id: 'contract', render: renderContractCard },
     { id: 'apartment', render: renderApartmentCard },
     { id: 'payment', render: renderPaymentCard },
@@ -395,7 +589,10 @@ const DashboardScreen = () => {
         {
           title: complaintTitle,
           description: complaintDescription,
-          buildingId: dashboardData.profile.buildingId
+          buildingId: dashboardData.profile.buildingId,
+          status: 'Pending',
+          resolvedByAdminId: null,
+          resolvedAt: null
         },
         {
           headers: {
@@ -414,7 +611,6 @@ const DashboardScreen = () => {
         setComplaintTitle('');
         setComplaintDescription('');
         setIsComplaintModalVisible(false);
-        // Şikayet listesini yenile
         fetchDashboardData();
       } else {
         throw new Error(response.data.message || 'Şikayet oluşturulurken bir hata oluştu.');
@@ -553,6 +749,7 @@ const DashboardScreen = () => {
       </TouchableOpacity>
 
       {renderComplaintModal()}
+      {renderPaymentModal()}
     </View>
   );
 };
@@ -764,6 +961,47 @@ const styles = StyleSheet.create({
   },
   submitButtonDisabled: {
     opacity: 0.7,
+  },
+  paymentItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  paymentInfo: {
+    flex: 1,
+  },
+  paymentTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 4,
+  },
+  paymentAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#6366F1',
+    marginBottom: 4,
+  },
+  paymentDate: {
+    fontSize: 14,
+    color: '#64748B',
+  },
+  payButton: {
+    backgroundColor: '#6366F1',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  payButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  rowInputContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
 });
 

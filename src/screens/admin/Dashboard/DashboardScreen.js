@@ -1,29 +1,32 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ScrollView, View, StyleSheet, Dimensions, TouchableOpacity, Modal, Animated, FlatList } from 'react-native';
+import { ScrollView, View, StyleSheet, Dimensions, TouchableOpacity, Modal, Animated, FlatList, Alert } from 'react-native';
 import { Surface, Text, Card, List, useTheme, Avatar, ProgressBar, Divider, Button, Badge } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Fonts, Colors, Gradients, Theme as AppTheme } from '../../../constants';
 import axios from 'axios';
 import { API_ENDPOINTS, getCurrentAdminId } from '../../../config/apiConfig';
+import { useNavigation } from '@react-navigation/native';
 
-const StatCard = ({ title, value, icon, gradient }) => {
+const StatCard = ({ title, value, icon, gradient, onPress }) => {
   const theme = useTheme();
   return (
-    <Surface style={[styles.statCard, { backgroundColor: "transparent"}]} elevation={5}>
-      <View style={{ overflow: 'hidden', borderRadius: 16 }}>
-        <LinearGradient
-          colors={gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.gradientCard}
-        >
-          <Icon name={icon} size={32} color={theme.colors.text} />
-          <Text style={[styles.statValue, { color: theme.colors.text, fontFamily:"Poppins-Regular" }]}>{value}</Text>
-          <Text style={[styles.statTitle, { color: theme.colors.text, fontFamily: "Lato-Bold",fontSize:"15" }]}>{title}</Text>
-        </LinearGradient>
-      </View>
-    </Surface>
+    <TouchableOpacity onPress={onPress}>
+      <Surface style={[styles.statCard, { backgroundColor: theme.colors.surface }]} elevation={5}>
+        <View style={{ overflow: 'hidden', borderRadius: 16 }}>
+          <LinearGradient
+            colors={gradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.gradientCard}
+          >
+            <Icon name={icon} size={28} color={theme.colors.text} />
+            <Text style={[styles.statValue, { color: theme.colors.text, fontFamily:"Poppins-Regular" }]}>{value}</Text>
+            <Text style={[styles.statTitle, { color: theme.colors.text, fontFamily: "Lato-Bold",fontSize:"12" }]}>{title}</Text>
+          </LinearGradient>
+        </View>
+      </Surface>
+    </TouchableOpacity>
   );
 };
 
@@ -536,73 +539,13 @@ const ComplaintModal = ({ visible, complaint, onClose, onResolve, isResolving })
   );
 };
 
-const MostComplainedBuildingCard = ({ data }) => {
-  const theme = useTheme();
-  
-  return (
-    <Card style={[styles.mostComplainedCard, { backgroundColor: theme.colors.surface }]}>
-      <LinearGradient
-        colors={Gradients.warning}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.gradientBorder}
-      />
-      <Card.Content style={styles.mostComplainedContent}>
-        <View style={styles.mostComplainedHeader}>
-          <View style={styles.mostComplainedTitleContainer}>
-            <Icon name="alert-circle" size={24} color={theme.colors.warning} />
-            <Text style={[styles.mostComplainedTitle, { color: theme.colors.text, fontFamily: Fonts.lato.bold }]}>
-              En Çok Şikayet Alan Bina
-            </Text>
-          </View>
-          <View style={[styles.complaintCountBadge, { backgroundColor: theme.colors.warning }]}>
-            <Text style={styles.complaintCountText}>{data.complaintCount}</Text>
-          </View>
-        </View>
-        
-        <View style={styles.buildingInfoContainer}>
-          <Icon name="office-building" size={40} color={theme.colors.warning} style={styles.buildingIcon} />
-          <View style={styles.buildingDetails}>
-            <Text style={[styles.buildingName, { color: theme.colors.text, fontFamily: Fonts.lato.bold }]}>
-              {data.buildingName}
-            </Text>
-            <Text style={[styles.lastComplaintDate, { color: theme.colors.textSecondary, fontFamily: Fonts.lato.italic }]}>
-              Son şikayet: {new Date(data.lastComplaintDate).toLocaleDateString('tr-TR')}
-            </Text>
-          </View>
-        </View>
-        
-        <View style={styles.complaintsContainer}>
-          <Text style={[styles.complaintsTitle, { color: theme.colors.textSecondary, fontFamily: Fonts.lato.bold }]}>
-            Yaygın Şikayetler:
-          </Text>
-          {data.commonComplaints.map((complaint, index) => (
-            <View key={index} style={styles.complaintItem}>
-              <View style={[styles.complaintBullet, { backgroundColor: theme.colors.warning }]} />
-              <Text style={[styles.complaintText, { color: theme.colors.text, fontFamily: Fonts.lato.regular }]}>
-                {complaint}
-              </Text>
-            </View>
-          ))}
-        </View>
-        
-        <TouchableOpacity style={[styles.viewDetailsButton, { borderColor: theme.colors.warning }]}>
-          <Text style={[styles.viewDetailsText, { color: theme.colors.warning, fontFamily: Fonts.lato.bold }]}>
-            Tüm Şikayetleri Görüntüle
-          </Text>
-          <Icon name="chevron-right" size={16} color={theme.colors.warning} />
-        </TouchableOpacity>
-      </Card.Content>
-    </Card>
-  );
-};
-
 const DashboardScreen = () => {
   const theme = useTheme();
+  const navigation = useNavigation();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState(0); // 0: activities, 1: complaints, 2: payments
-  const [scrollPosition, setScrollPosition] = useState(0); // Track exact scroll position
+  const [activeTab, setActiveTab] = useState(0);
+  const [scrollPosition, setScrollPosition] = useState(0);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
@@ -614,9 +557,11 @@ const DashboardScreen = () => {
     const fetchDashboardData = async () => {
       try {
         const response = await axios.get(API_ENDPOINTS.ADMIN.ENHANCED_DASHBOARD(getCurrentAdminId()));
+        console.log('Dashboard Data:', response.data);
         setDashboardData(response.data.data);
       } catch (error) {
         console.error('Dashboard verisi alınırken hata oluştu:', error);
+        Alert.alert('Hata', 'Dashboard verileri yüklenirken bir hata oluştu.');
       } finally {
         setLoading(false);
       }
@@ -822,31 +767,35 @@ const DashboardScreen = () => {
       nestedScrollEnabled={true}
     >
       <View style={styles.statsContainer}>
-        <StatCard
-          title="Toplam Bina"
-          value={dashboardData.summary.totalBuildings}
-          icon="office-building"
-          gradient={Gradients.primary}
-        />
-        <StatCard
-          title="Toplam Kiracı"
-          value={dashboardData.summary.totalTenants}
-          icon="account-group"
-          gradient={Gradients.greenBlue}
-        />
-        <StatCard
-          title="Aktif Şikayet"
-          value={dashboardData.summary.totalComplaints}
-          icon="alert-circle"
-          gradient={Gradients.warning}
-        />
-        <StatCard
-          
-          title="Bekleyen Ödeme"
-          value={dashboardData.summary.pendingPayments}
-          icon="cash-multiple"
-          gradient={Gradients.danger}
-        />
+        <View style={styles.cardRow}>
+          <StatCard
+            title="Toplam Bina"
+            value={dashboardData.summary.totalBuildings}
+            icon="office-building"
+            gradient={Gradients.primary}
+            onPress={() => navigation.navigate('BuildingsList')}
+          />
+          <StatCard
+            title="Toplam Kiracı"
+            value={dashboardData.summary.totalTenants}
+            icon="account-group"
+            gradient={Gradients.greenBlue}
+          />
+        </View>
+        <View style={styles.cardRow}>
+          <StatCard
+            title="Aktif Şikayet"
+            value={dashboardData.summary.totalComplaints}
+            icon="alert-circle"
+            gradient={Gradients.warning}
+          />
+          <StatCard
+            title="Bekleyen Ödeme"
+            value={dashboardData.summary.pendingPayments}
+            icon="cash-multiple"
+            gradient={Gradients.danger}
+          />
+        </View>
       </View>
 
       <FinancialOverviewCard data={dashboardData.financialOverview} />
@@ -855,7 +804,7 @@ const DashboardScreen = () => {
         <TabHeader />
         <FlatList
           ref={flatListRef}
-          data={[0, 1, 2]} // Indexes for the three tabs
+          data={[0, 1, 2]}
           renderItem={renderTabContent}
           keyExtractor={(item) => item.toString()}
           horizontal
@@ -875,8 +824,6 @@ const DashboardScreen = () => {
         />
       </Card>
 
-      <MostComplainedBuildingCard data={dashboardData.mostComplainedBuilding} />
-
       <ComplaintModal 
         visible={modalVisible}
         complaint={selectedComplaint}
@@ -894,31 +841,44 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   statsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
     fontFamily: "Poppins-Regular",
     marginVertical: 0,
     marginBottom: -12,
   },
+  cardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 15,
+  },
   statCard: {
-    width: '49%',
-    marginBottom: 8,
-    boxShadow: '0px 5px 10px 0px rgba(255, 246, 246, 0.3)',
+    width: 185,
+    marginBottom: 0,
     borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   gradientCard: {
-    padding: 20,
+    padding: 12,
     alignItems: 'center',
     borderRadius: 16,
   },
   statValue: {
-    fontSize: 28,
-   
+    fontSize: 24,
+    marginTop: 4,
   },
   statTitle: {
-    fontSize: 14,
+    fontSize: 12,
     opacity: 0.9,
+    marginTop: 2,
   },
   financialContainer: {
   
@@ -1185,95 +1145,6 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: 'rgba(255,255,255,0.6)',
     borderRadius: 5,
-  },
-  mostComplainedCard: {
-    marginBottom: 104,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  mostComplainedContent: {
-    padding: 16,
-  },
-  mostComplainedHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  mostComplainedTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  mostComplainedTitle: {
-    fontSize: 18,
-    marginLeft: 8,
-  },
-  complaintCountBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  complaintCountText: {
-    color: '#fff',
-    fontFamily: Fonts.lato.bold,
-    fontSize: 16,
-  },
-  buildingInfoContainer: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    padding: 12,
-    backgroundColor: 'rgba(0,0,0,0.03)',
-    borderRadius: 12,
-  },
-  buildingIcon: {
-    marginRight: 12,
-  },
-  buildingDetails: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  buildingName: {
-    fontSize: 20,
-    marginBottom: 4,
-  },
-  lastComplaintDate: {
-    fontSize: 12,
-  },
-  complaintsContainer: {
-    marginBottom: 16,
-  },
-  complaintsTitle: {
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  complaintItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  complaintBullet: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  complaintText: {
-    fontSize: 14,
-    flex: 1,
-  },
-  viewDetailsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderRadius: 8,
-  },
-  viewDetailsText: {
-    fontSize: 14,
-    marginRight: 4,
   },
 });
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   TextInput,
@@ -9,6 +9,7 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  FlatList,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
@@ -22,7 +23,41 @@ const LoginScreen = ({ navigation, route }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [emailSuggestions, setEmailSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const role = route.params?.role || 'admin';
+
+  // Daha önce girilen e-posta adreslerini yükle
+  useEffect(() => {
+    loadEmailSuggestions();
+  }, []);
+
+  const loadEmailSuggestions = async () => {
+    try {
+      const savedEmails = await AsyncStorage.getItem('savedEmails');
+      if (savedEmails) {
+        setEmailSuggestions(JSON.parse(savedEmails));
+      }
+    } catch (error) {
+      console.error('E-posta önerileri yüklenirken hata:', error);
+    }
+  };
+
+  const saveEmail = async (newEmail) => {
+    try {
+      const savedEmails = await AsyncStorage.getItem('savedEmails');
+      let emails = savedEmails ? JSON.parse(savedEmails) : [];
+      
+      // Eğer e-posta zaten listede yoksa ekle
+      if (!emails.includes(newEmail)) {
+        emails = [newEmail, ...emails].slice(0, 5); // Son 5 e-postayı sakla
+        await AsyncStorage.setItem('savedEmails', JSON.stringify(emails));
+        setEmailSuggestions(emails);
+      }
+    } catch (error) {
+      console.error('E-posta kaydedilirken hata:', error);
+    }
+  };
 
   const validateForm = () => {
     if (!email.trim() || !password.trim()) {
@@ -52,20 +87,12 @@ const LoginScreen = ({ navigation, route }) => {
 
       const response = await api.post(API_ENDPOINTS.AUTH.LOGIN, loginData);
 
-      console.log('\n=== Sunucu Yanıtı ===');
-      console.log('Yanıt:', JSON.stringify(response.data, null, 2));
-
-      const { message, userId, email, role, adminId, token } = response.data;
-
-      if (message === "Giriş başarılı") {
+      if (response.data.message === "Giriş başarılı") {
         console.log('\n=== Giriş Başarılı ===');
-        console.log('Kullanıcı ID:', userId);
-        console.log('Kullanıcı Email:', email);
-        console.log('Kullanıcı Rol:', role);
-        console.log('Token:', token);
-        if (role === 'admin') {
-          console.log('Admin ID:', userId);
-        }
+        const { message, userId, email, role, adminId, token } = response.data;
+
+        // Başarılı girişte e-postayı kaydet
+        await saveEmail(email);
 
         // Token'ı header'a ekle
         setAuthToken(token);
@@ -79,69 +106,57 @@ const LoginScreen = ({ navigation, route }) => {
           ...(role === 'admin' ? [['adminId', userId.toString()]] : [])
         ]);
 
-        console.log('\n=== AsyncStorage Güncellendi ===');
-        console.log('Kaydedilen userId:', userId);
-        console.log('Kaydedilen email:', email);
-        console.log('Kaydedilen rol:', role);
-        console.log('Kaydedilen token:', token);
-        if (role === 'admin') {
-          console.log('Kaydedilen adminId:', userId);
-        }
-
         // API instance'ına userId ve adminId'yi ekle
         setCurrentUserId(userId);
         if (role === 'admin') {
           setCurrentAdminId(userId);
         }
 
-        console.log('\n=== API Config Güncellendi ===');
-        console.log('currentUserId ayarlandı:', userId);
-        if (role === 'admin') {
-          console.log('currentAdminId ayarlandı:', userId);
-        }
-
         // Başarılı giriş sonrası yönlendirme
         if (role === 'admin') {
-          console.log('\n=== Yönetici Paneline Yönlendiriliyor ===');
           navigation.reset({
             index: 0,
             routes: [{ name: 'AdminNavigator' }],
           });
         } else if (role === 'tenant') {
           console.log('\n=== Kiracı Paneline Yönlendiriliyor ===');
+          
           navigation.reset({
             index: 0,
-            routes: [{ name: 'TenantNavigator' }],
+            routes: [{ 
+              name: 'TenantNavigator',
+              params: { userId: userId }
+            }],
           });
         }
       } else {
-        console.log('\n=== Giriş Başarısız ===');
-        console.log('Hata mesajı:', message);
-        Alert.alert('Hata', 'Geçersiz e-posta veya şifre');
+        // Handle specific error using errorCode
+        switch(response.data.errorCode) {
+          case 'USER_NOT_FOUND':
+            Alert.alert('Hata', 'Bu e-posta adresi ile kayıtlı kullanıcı bulunamadı.');
+            break;
+          case 'INVALID_PASSWORD':
+            Alert.alert('Hata', 'Girdiğiniz şifre yanlış. Lütfen tekrar deneyin.');
+            break;
+          case 'ACCOUNT_DISABLED':
+            Alert.alert('Hata', 'Hesabınız devre dışı bırakılmış. Lütfen yönetici ile iletişime geçin.');
+            break;
+          default:
+            Alert.alert('Hata', response.data.message || 'Giriş yapılırken bir hata oluştu.');
+        }
       }
     } catch (error) {
-      console.log('\n=== Giriş Hatası ===');
-      console.error('Hata detayları:', {
-        message: error.message,
-        response: error.response?.data,
-        endpoint: API_ENDPOINTS.AUTH.LOGIN
-      });
-
-      if (error.message.includes('Network Error')) {
-        console.log('Bağlantı hatası oluştu');
-        Alert.alert(
-          'Bağlantı Hatası',
-          'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.'
-        );
+      if (error.response) {
+        console.error('Error response:', error.response.data);
+        Alert.alert('Hata', error.response.data.message || 'Sunucu hatası oluştu.');
+      } else if (error.request) {
+        console.error('No response received:', error.request);
+        Alert.alert('Bağlantı Hatası', 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.');
       } else {
-        console.log('API hatası oluştu');
-        Alert.alert(
-          'Hata',
-          error.response?.data?.message || 'Giriş yapılırken bir hata oluştu. Lütfen tekrar deneyin.'
-        );
+        console.error('Error:', error.message);
+        Alert.alert('Hata', 'Bir hata oluştu. Lütfen tekrar deneyin.');
       }
     } finally {
-      console.log('\n=== Giriş İşlemi Tamamlandı ===');
       setIsLoading(false);
     }
   };
@@ -149,6 +164,21 @@ const LoginScreen = ({ navigation, route }) => {
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
+
+  const handleEmailSelect = (selectedEmail) => {
+    setEmail(selectedEmail);
+    setShowSuggestions(false);
+  };
+
+  const renderEmailSuggestion = ({ item }) => (
+    <TouchableOpacity
+      style={styles.suggestionItem}
+      onPress={() => handleEmailSelect(item)}
+    >
+      <Icon name="history" size={16} color={colors.darkGray} style={styles.suggestionIcon} />
+      <Text style={styles.suggestionText}>{item}</Text>
+    </TouchableOpacity>
+  );
 
   return (
     <KeyboardAvoidingView
@@ -181,12 +211,29 @@ const LoginScreen = ({ navigation, route }) => {
                 style={styles.input}
                 placeholder="E-posta"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  setShowSuggestions(text.length > 0);
+                }}
+                onFocus={() => setShowSuggestions(email.length > 0)}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 placeholderTextColor={colors.darkGray}
               />
             </View>
+
+            {showSuggestions && emailSuggestions.length > 0 && (
+              <View style={styles.suggestionsContainer}>
+                <FlatList
+                  data={emailSuggestions.filter(email => 
+                    email.toLowerCase().includes(email.toLowerCase())
+                  )}
+                  renderItem={renderEmailSuggestion}
+                  keyExtractor={(item) => item}
+                  style={styles.suggestionsList}
+                />
+              </View>
+            )}
 
             <View style={styles.inputContainer}>
               <Icon name="lock" size={20} color={colors.darkGray} style={styles.inputIcon} />
@@ -330,6 +377,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  suggestionsContainer: {
+    width: '100%',
+    maxHeight: 150,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 12,
+    marginBottom: 15,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
+  },
+  suggestionsList: {
+    padding: 10,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  suggestionIcon: {
+    marginRight: 10,
+  },
+  suggestionText: {
+    color: colors.black,
+    fontSize: 16,
   },
 });
 

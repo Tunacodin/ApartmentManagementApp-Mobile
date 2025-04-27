@@ -11,6 +11,7 @@ import CreateMeetingScreen from '../screens/admin/Dashboard/CreateMeetingScreen'
 import CreateAnnouncementScreen from '../screens/admin/Dashboard/CreateAnnouncementScreen';
 import CreateNotificationScreen from '../screens/admin/Dashboard/CreateNotificationScreen';
 import ActivitiesScreen from '../screens/admin/Dashboard/ActivitiesScreen';
+import BuildingsListScreen from '../screens/admin/Dashboard/BuildingsListScreen';
 
 // Management Screens
 import ManagementScreen from '../screens/admin/Management/ManagementScreen';
@@ -73,16 +74,71 @@ const screenOptions = {
     backgroundColor: 'transparent',
   },
   headerShadowVisible: false,
+  gestureEnabled: true,
+  gestureDirection: 'horizontal',
+  animation: 'slide_from_right',
+  headerBackVisible: false,
 };
 
 // Dashboard Stack Navigator
 const DashboardStack = () => (
   <Stack.Navigator screenOptions={screenOptions}>
-    <Stack.Screen name="DashboardMain" component={DashboardScreen} />
-    <Stack.Screen name="Activities" component={ActivitiesScreen} />
-    <Stack.Screen name="CreateMeeting" component={CreateMeetingScreen} />
-    <Stack.Screen name="CreateAnnouncement" component={CreateAnnouncementScreen} />
-    <Stack.Screen name="CreateNotification" component={CreateNotificationScreen} />
+    <Stack.Screen 
+      name="DashboardMain" 
+      component={DashboardScreen}
+      options={{
+        headerShown: true,
+        headerTitle: () => (
+          <Text style={styles.headerTitle}>EVIN</Text>
+        ),
+        headerBackVisible: false,
+      }}
+    />
+    <Stack.Screen 
+      name="Activities" 
+      component={ActivitiesScreen}
+      options={{
+        title: 'Etkinlikler',
+        headerTitleStyle: styles.headerTitle,
+        headerBackVisible: false,
+      }}
+    />
+    <Stack.Screen 
+      name="CreateMeeting" 
+      component={CreateMeetingScreen}
+      options={{
+        title: 'Toplantı Oluştur',
+        headerTitleStyle: styles.headerTitle,
+        headerBackVisible: false,
+      }}
+    />
+    <Stack.Screen 
+      name="CreateAnnouncement" 
+      component={CreateAnnouncementScreen}
+      options={{
+        title: 'Duyuru Oluştur',
+        headerTitleStyle: styles.headerTitle,
+        headerBackVisible: false,
+      }}
+    />
+    <Stack.Screen 
+      name="CreateNotification" 
+      component={CreateNotificationScreen}
+      options={{
+        title: 'Bildirim Oluştur',
+        headerTitleStyle: styles.headerTitle,
+        headerBackVisible: false,
+      }}
+    />
+    <Stack.Screen 
+      name="BuildingsList" 
+      component={BuildingsListScreen}
+      options={{
+        title: 'Binalarınız',
+        headerTitleStyle: styles.headerTitle,
+        headerBackVisible: false,
+      }}
+    />
   </Stack.Navigator>
 );
 
@@ -97,14 +153,7 @@ const ManagementStack = () => (
     <Stack.Screen name="Complaints" component={ComplaintsScreen} />
     <Stack.Screen name="CreateMeeting" component={CreateMeetingScreen} />
     <Stack.Screen name="CreateAnnouncement" component={CreateAnnouncementScreen} />
-    <Stack.Screen 
-      name="ApartmentDetails" 
-      component={ApartmentDetailsScreen}
-      options={{
-        title: 'Daire Detayları',
-        headerTitleStyle: styles.headerTitle,
-      }}
-    />
+    <Stack.Screen name="ApartmentDetails" component={ApartmentDetailsScreen} />
   </Stack.Navigator>
 );
 
