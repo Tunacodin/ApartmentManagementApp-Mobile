@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { PaperProvider, MD3LightTheme as DefaultTheme } from 'react-native-paper';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaView, StatusBar, StyleSheet } from 'react-native';
 import { useFonts } from 'expo-font';
 import AppNavigator from './src/navigation/AppNavigator';
+import { loadStoredCredentials } from './src/config/apiConfig';
 
 // Font configuration
 export const fonts = {
@@ -384,6 +385,10 @@ const App = () => {
     [fonts.lato.boldItalic]: require('./src/assets/fonts/Lato/Lato-BoldItalic.ttf'),
     [fonts.lato.blackItalic]: require('./src/assets/fonts/Lato/Lato-BlackItalic.ttf'),
   });
+
+  useEffect(() => {
+    loadStoredCredentials();
+  }, []);
 
   if (!fontsLoaded) {
     return null;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ScrollView, View, StyleSheet, Dimensions, TouchableOpacity, Modal, Animated, FlatList, Alert } from 'react-native';
+import { ScrollView, View, StyleSheet, Dimensions, TouchableOpacity, Modal, Animated, FlatList, Alert, RefreshControl } from 'react-native';
 import { Surface, Text, Card, List, useTheme, Avatar, ProgressBar, Divider, Button, Badge } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -197,15 +197,64 @@ const ActivityItem = ({ activity }) => {
   };
 
   const getStatusGradient = (status) => {
-    switch (status) {
-      case 'Ödendi':
-      case 'Çözüldü':
-        return theme.gradients.success;
-      case 'Bekliyor':
-        return theme.gradients.warning;
-      default:
-        return [theme.colors.textSecondary, theme.colors.textSecondary];
+    if (activity.activityType === 'Payment') {
+      return status === 'Ödendi' ? theme.gradients.success : theme.gradients.warning;
+    } else if (activity.activityType === 'Complaint') {
+      switch (status) {
+        case 'Çözüldü':
+          return theme.gradients.success;
+        case 'Reddedildi':
+          return theme.gradients.danger;
+        case 'İşlemde':
+        case 'Açık':
+        case 'Bekliyor':
+          return theme.gradients.warning;
+        default:
+          return [theme.colors.textSecondary, theme.colors.textSecondary];
+      }
     }
+    return [theme.colors.textSecondary, theme.colors.textSecondary];
+  };
+
+  const getStatusText = (status) => {
+    if (activity.activityType === 'Payment') {
+      return status;
+    } else if (activity.activityType === 'Complaint') {
+      switch (status) {
+        case 'Çözüldü':
+          return 'Çözüldü';
+        case 'Reddedildi':
+          return 'Reddedildi';
+        case 'İşlemde':
+          return 'İşlemde';
+        case 'Açık':
+        case 'Bekliyor':
+          return 'Bekliyor';
+        default:
+          return status;
+      }
+    }
+    return status;
+  };
+
+  const getStatusColor = (status) => {
+    if (activity.activityType === 'Payment') {
+      return status === 'Ödendi' ? theme.colors.success : theme.colors.warning;
+    } else if (activity.activityType === 'Complaint') {
+      switch (status) {
+        case 'Çözüldü':
+          return theme.colors.success;
+        case 'Reddedildi':
+          return theme.colors.error;
+        case 'İşlemde':
+        case 'Açık':
+        case 'Bekliyor':
+          return theme.colors.warning;
+        default:
+          return theme.colors.textSecondary;
+      }
+    }
+    return theme.colors.textSecondary;
   };
 
   return (
@@ -272,14 +321,11 @@ const ActivityItem = ({ activity }) => {
                 fontSize: 12,
                 fontFamily: Fonts.lato.bold,
                 paddingHorizontal: 8,
-                
                 marginBottom: 4,
-                backgroundColor: activity.status === 'Ödendi' || activity.status === 'Çözüldü' 
-                  ? theme.colors.success 
-                  : theme.colors.warning 
+                backgroundColor: getStatusColor(activity.status)
               }}
             >
-              {activity.status}
+              {getStatusText(activity.status)}
             </Badge>
           </View>
         </View>
@@ -291,6 +337,18 @@ const ActivityItem = ({ activity }) => {
 const PaymentItem = ({ payment }) => {
   const theme = useTheme();
   
+  const getStatusGradient = (isPaid) => {
+    return isPaid ? theme.gradients.success : theme.gradients.warning;
+  };
+
+  const getStatusColor = (isPaid) => {
+    return isPaid ? theme.colors.success : theme.colors.warning;
+  };
+
+  const getStatusText = (isPaid) => {
+    return isPaid ? 'Ödendi' : 'Bekliyor';
+  };
+
   return (
     <List.Item
       style={styles.activityItem}
@@ -302,10 +360,10 @@ const PaymentItem = ({ payment }) => {
       description={props => (
         <View>
           <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
-            {payment.amount.toLocaleString('tr-TR')} ₺
+            {payment.description}
           </Text>
           <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.italic }}>
-            {payment.payerName}
+            {payment.userFullName}
           </Text>
         </View>
       )}
@@ -319,7 +377,7 @@ const PaymentItem = ({ payment }) => {
             />
           ) : (
             <LinearGradient
-              colors={payment.isPaid ? theme.gradients.success : theme.gradients.warning}
+              colors={getStatusGradient(payment.isPaid)}
               style={styles.activityIconGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
@@ -327,7 +385,7 @@ const PaymentItem = ({ payment }) => {
               <Icon name="cash" size={24} color={theme.colors.text} />
             </LinearGradient>
           )}
-          <Text style={styles.apartmentText}>{payment.apartmentNumber}</Text>
+          <Text style={styles.apartmentText}>Daire {payment.apartmentId}</Text>
         </View>
       )}
       right={props => (
@@ -335,16 +393,29 @@ const PaymentItem = ({ payment }) => {
           <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
             {new Date(payment.paymentDate).toLocaleDateString('tr-TR')}
           </Text>
+          <Text style={{ color: theme.colors.text, fontFamily: Fonts.lato.bold }}>
+            {payment.totalAmount.toLocaleString('tr-TR')} ₺
+          </Text>
+          {payment.delayedDays > 0 && (
+            <Text style={{ 
+              color: theme.colors.error, 
+              fontFamily: Fonts.lato.regular,
+              fontSize: 12,
+              marginBottom: 4
+            }}>
+              {payment.delayedDays} gün gecikme
+            </Text>
+          )}
           <Badge 
             style={{ 
               fontSize: 12,
               fontFamily: Fonts.lato.bold,
               paddingHorizontal: 8,
               marginBottom: 4,
-              backgroundColor: payment.isPaid ? theme.colors.success : theme.colors.warning 
+              backgroundColor: getStatusColor(payment.isPaid)
             }}
           >
-            {payment.isPaid ? 'Ödendi' : 'Bekliyor'}
+            {getStatusText(payment.isPaid)}
           </Badge>
         </View>
       )}
@@ -352,190 +423,112 @@ const PaymentItem = ({ payment }) => {
   );
 };
 
-const ComplaintItem = ({ complaint, onPress }) => {
+const ComplaintItem = ({ complaint }) => {
   const theme = useTheme();
   
   const getStatusGradient = (status) => {
     switch (status) {
-      case 'Çözüldü':
+      case 2: // Çözüldü
         return theme.gradients.success;
-      case 'Bekliyor':
+      case 3: // Reddedildi
+        return theme.gradients.danger;
+      case 1: // İşlemde
+        return theme.gradients.warning;
+      case 0: // Bekliyor
         return theme.gradients.warning;
       default:
         return [theme.colors.textSecondary, theme.colors.textSecondary];
     }
   };
 
-  return (
-    <TouchableOpacity onPress={() => onPress(complaint)}>
-      <List.Item
-        style={styles.activityItem}
-        title={props => (
-          <Text style={{ color: theme.colors.text, fontFamily: Fonts.lato.bold }}>
-            {complaint.subject}
-          </Text>
-        )}
-        description={props => (
-          <View>
-            <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
-              {complaint.description}
-            </Text>
-            <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.italic }}>
-              {complaint.complainerName}
-            </Text>
-          </View>
-        )}
-        left={props => (
-          <View style={styles.activityIconContainer}>
-            {complaint.profileImageUrl ? (
-              <Avatar.Image 
-                size={48} 
-                source={{ uri: complaint.profileImageUrl }} 
-                style={styles.profileAvatar}
-              />
-            ) : (
-              <LinearGradient
-                colors={getStatusGradient(complaint.status)}
-                style={styles.activityIconGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <Icon name="alert-circle" size={24} color={theme.colors.text} />
-              </LinearGradient>
-            )}
-            <Text style={styles.apartmentText}>{complaint.apartmentNumber}</Text>
-          </View>
-        )}
-        right={props => (
-          <View style={styles.activityRight}>
-            <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
-              {new Date(complaint.createdAt).toLocaleDateString('tr-TR')}
-            </Text>
-            <Badge 
-              style={{ 
-                fontSize: 12,
-                fontFamily: Fonts.lato.bold,
-                paddingHorizontal: 8,
-                marginBottom: 4,
-                backgroundColor: complaint.status === 'Çözüldü' ? theme.colors.success : theme.colors.warning 
-              }}
-            >
-              {complaint.status}
-            </Badge>
-          </View>
-        )}
-      />
-    </TouchableOpacity>
-  );
-};
-
-const ComplaintModal = ({ visible, complaint, onClose, onResolve, isResolving }) => {
-  const theme = useTheme();
-  const [slideAnim] = useState(new Animated.Value(Dimensions.get('window').width));
-
-  useEffect(() => {
-    if (visible) {
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(slideAnim, {
-        toValue: Dimensions.get('window').width,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
+  const getStatusText = (status) => {
+    switch (status) {
+      case 2:
+        return 'Çözüldü';
+      case 3:
+        return 'Reddedildi';
+      case 1:
+        return 'İşlemde';
+      case 0:
+        return 'Bekliyor';
+      default:
+        return 'Bilinmiyor';
     }
-  }, [visible]);
+  };
 
-  if (!complaint) return null;
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 2:
+        return theme.colors.success;
+      case 3:
+        return theme.colors.error;
+      case 1:
+        return theme.colors.warning;
+      case 0:
+        return theme.colors.warning;
+      default:
+        return theme.colors.textSecondary;
+    }
+  };
 
   return (
-    <Modal
-      transparent={true}
-      visible={visible}
-      onRequestClose={onClose}
-      animationType="none"
-    >
-      <View style={styles.modalOverlay}>
-        <Animated.View 
-          style={[
-            styles.modalContent, 
-            { backgroundColor: theme.colors.surface, transform: [{ translateX: slideAnim }] }
-          ]}
-        >
-          <View style={styles.modalHeader}>
-            <Text style={[styles.modalTitle, { color: theme.colors.text, fontFamily: Fonts.lato.bold }]}>
-              Şikayet Detayı
-            </Text>
-            <TouchableOpacity onPress={onClose}>
-              <Icon name="close" size={24} color={theme.colors.text} />
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.complaintDetails}>
-            <View style={styles.complaintHeader}>
-              {complaint.profileImageUrl ? (
-                <Avatar.Image 
-                  size={64} 
-                  source={{ uri: complaint.profileImageUrl }} 
-                />
-              ) : (
-                <Avatar.Icon 
-                  size={64} 
-                  icon="account" 
-                  color={theme.colors.text}
-                  style={{ backgroundColor: theme.colors.primary }}
-                />
-              )}
-              <View style={styles.complaintHeaderText}>
-                <Text style={{ fontSize: 18, fontFamily: Fonts.lato.bold, color: theme.colors.text }}>
-                  {complaint.complainerName}
-                </Text>
-                <Text style={{ fontFamily: Fonts.lato.regular, color: theme.colors.textSecondary }}>
-                  {complaint.apartmentNumber}, {complaint.buildingName}
-                </Text>
-                <View style={styles.statusChip}>
-                  <Text style={{ 
-                    color: complaint.status === 'Çözüldü' ? theme.colors.success : theme.colors.warning,
-                    fontFamily: Fonts.lato.bold 
-                  }}>
-                    {complaint.status}
-                  </Text>
-                </View>
-              </View>
-            </View>
-            
-            <Divider style={{ marginVertical: 16 }} />
-            
-            <Text style={{ fontSize: 18, fontFamily: Fonts.lato.bold, color: theme.colors.text, marginBottom: 8 }}>
-              {complaint.subject}
-            </Text>
-            
-            <Text style={{ fontFamily: Fonts.lato.regular, color: theme.colors.text, marginBottom: 16 }}>
-              {complaint.description}
-            </Text>
-            
-            <Text style={{ fontFamily: Fonts.lato.italic, color: theme.colors.textSecondary, marginBottom: 24 }}>
-              Tarih: {new Date(complaint.createdAt).toLocaleString('tr-TR')}
-            </Text>
-            
-            {complaint.status !== 'Çözüldü' && (
-              <Button 
-                mode="contained" 
-                onPress={() => onResolve(complaint.id)}
-                loading={isResolving}
-                disabled={isResolving}
-                style={{ backgroundColor: theme.colors.primary }}
-              >
-                İşleme Al
-              </Button>
-            )}
-          </View>
-        </Animated.View>
-      </View>
-    </Modal>
+    <List.Item
+      style={styles.activityItem}
+      title={props => (
+        <Text style={{ color: theme.colors.text, fontFamily: Fonts.lato.bold }}>
+          {complaint.subject}
+        </Text>
+      )}
+      description={props => (
+        <View>
+          <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
+            {complaint.description}
+          </Text>
+          <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.italic }}>
+            {complaint.complainerName}
+          </Text>
+        </View>
+      )}
+      left={props => (
+        <View style={styles.activityIconContainer}>
+          {complaint.profileImageUrl ? (
+            <Avatar.Image 
+              size={48} 
+              source={{ uri: complaint.profileImageUrl }} 
+              style={styles.profileAvatar}
+            />
+          ) : (
+            <LinearGradient
+              colors={getStatusGradient(complaint.status)}
+              style={styles.activityIconGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Icon name="alert-circle" size={24} color={theme.colors.text} />
+            </LinearGradient>
+          )}
+          <Text style={styles.apartmentText}>{complaint.apartmentNumber}</Text>
+        </View>
+      )}
+      right={props => (
+        <View style={styles.activityRight}>
+          <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
+            {new Date(complaint.createdAt).toLocaleDateString('tr-TR')}
+          </Text>
+          <Badge 
+            style={{ 
+              fontSize: 12,
+              fontFamily: Fonts.lato.bold,
+              paddingHorizontal: 8,
+              marginBottom: 4,
+              backgroundColor: getStatusColor(complaint.status)
+            }}
+          >
+            {getStatusText(complaint.status)}
+          </Badge>
+        </View>
+      )}
+    />
   );
 };
 
@@ -544,61 +537,39 @@ const DashboardScreen = () => {
   const navigation = useNavigation();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [scrollPosition, setScrollPosition] = useState(0);
-  const [selectedComplaint, setSelectedComplaint] = useState(null);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [isResolving, setIsResolving] = useState(false);
   const flatListRef = useRef(null);
   const screenWidth = Dimensions.get('window').width;
   const itemWidth = screenWidth - 32;
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const response = await axios.get(API_ENDPOINTS.ADMIN.ENHANCED_DASHBOARD(getCurrentAdminId()));
-        console.log('Dashboard Data:', response.data);
-        setDashboardData(response.data.data);
-      } catch (error) {
-        console.error('Dashboard verisi alınırken hata oluştu:', error);
-        Alert.alert('Hata', 'Dashboard verileri yüklenirken bir hata oluştu.');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchDashboardData = async () => {
+    try {
+      const response = await axios.get(API_ENDPOINTS.ADMIN.ENHANCED_DASHBOARD(getCurrentAdminId()));
+      console.log('Dashboard Data:', response.data);
+      setDashboardData(response.data.data);
+    } catch (error) {
+      console.error('Dashboard verisi alınırken hata oluştu:', error);
+      Alert.alert('Hata', 'Dashboard verileri yüklenirken bir hata oluştu.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
+  useEffect(() => {
     fetchDashboardData();
   }, []);
 
-  const handleComplaintPress = (complaint) => {
-    setSelectedComplaint(complaint);
-    setModalVisible(true);
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchDashboardData();
   };
 
-  const handleCloseModal = () => {
-    setModalVisible(false);
-    setTimeout(() => setSelectedComplaint(null), 300); // Animation süresinden sonra state'i temizle
-  };
-
-  const handleResolveComplaint = async (complaintId) => {
-    setIsResolving(true);
-    try {
-      const adminId = getCurrentAdminId();
-      await axios.post(API_ENDPOINTS.COMPLAINT.RESOLVE(complaintId), {
-        adminId: adminId,
-        message: `${selectedComplaint.subject} şikayetiniz işleme alındı`
-      });
-      
-      // Başarılı olduğunda dashboard verilerini güncelle
-      const response = await axios.get(API_ENDPOINTS.ADMIN.ENHANCED_DASHBOARD(adminId));
-      setDashboardData(response.data.data);
-      
-      // Modalı kapat
-      handleCloseModal();
-    } catch (error) {
-      console.error('Şikayet işleme alınırken hata oluştu:', error);
-    } finally {
-      setIsResolving(false);
+  const handleEndReached = () => {
+    if (!refreshing) {
+      fetchDashboardData();
     }
   };
 
@@ -615,7 +586,6 @@ const DashboardScreen = () => {
     }
   };
 
-  // Sürekli kaydırma sırasında da tab'ı güncelle
   const handleScrolling = (event) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
     const index = Math.floor(contentOffsetX / (screenWidth - 32) + 0.5);
@@ -674,71 +644,86 @@ const DashboardScreen = () => {
     </View>
   );
 
-  const ActivitiesTab = () => (
-    <View style={[styles.tabContent, { width: screenWidth - 32 }]}>
-      {dashboardData.recentActivities.length === 0 ? (
-        <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
-          Aktivite bulunamadı
-        </Text>
-      ) : (
-        <>
-          {dashboardData.recentActivities.slice(0, 5).map((activity, index) => (
-            <React.Fragment key={activity.id}>
-              <ActivityItem activity={activity} />
-              {index < 4 && (
+  const ActivitiesTab = () => {
+    const theme = useTheme();
+    
+    return (
+      <View style={[styles.tabContent, { width: screenWidth - 32 }]}>
+        <FlatList
+          data={dashboardData.recentActivities.slice(0, 5)}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item, index }) => (
+            <React.Fragment>
+              <ActivityItem activity={item} />
+              {index < dashboardData.recentActivities.length - 1 && (
                 <Divider style={[styles.itemDivider, { backgroundColor: theme.colors.textSecondary }]} />
               )}
             </React.Fragment>
-          ))}
-        </>
-      )}
-    </View>
-  );
+          )}
+          ListEmptyComponent={() => (
+            <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
+              Aktivite bulunamadı
+            </Text>
+          )}
+          showsVerticalScrollIndicator={false}
+        />
+      </View>
+    );
+  };
 
-  const ComplaintsTab = () => (
-    <View style={[styles.tabContent, { width: screenWidth - 32 }]}>
-      {dashboardData.recentComplaints.length === 0 ? (
-        <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
-          Şikayet bulunamadı
-        </Text>
-      ) : (
-        <>
-          {dashboardData.recentComplaints.map((complaint, index) => (
-            <React.Fragment key={complaint.id}>
-              <ComplaintItem 
-                complaint={complaint} 
-                onPress={handleComplaintPress}
-              />
+  const ComplaintsTab = () => {
+    const theme = useTheme();
+    
+    return (
+      <View style={[styles.tabContent, { width: screenWidth - 32 }]}>
+        <FlatList
+          data={dashboardData.recentComplaints}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item, index }) => (
+            <React.Fragment>
+              <ComplaintItem complaint={item} />
               {index < dashboardData.recentComplaints.length - 1 && (
                 <Divider style={[styles.itemDivider, { backgroundColor: theme.colors.textSecondary }]} />
               )}
             </React.Fragment>
-          ))}
-        </>
-      )}
-    </View>
-  );
+          )}
+          ListEmptyComponent={() => (
+            <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
+              Şikayet bulunamadı
+            </Text>
+          )}
+          showsVerticalScrollIndicator={false}
+        />
+      </View>
+    );
+  };
 
-  const PaymentsTab = () => (
-    <View style={[styles.tabContent, { width: screenWidth - 32 }]}>
-      {dashboardData.recentPayments.length === 0 ? (
-        <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
-          Ödeme bulunamadı
-        </Text>
-      ) : (
-        <>
-          {dashboardData.recentPayments.map((payment, index) => (
-            <React.Fragment key={payment.id}>
-              <PaymentItem payment={payment} />
+  const PaymentsTab = () => {
+    const theme = useTheme();
+    
+    return (
+      <View style={[styles.tabContent, { width: screenWidth - 32 }]}>
+        <FlatList
+          data={dashboardData.recentPayments}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item, index }) => (
+            <React.Fragment>
+              <PaymentItem payment={item} />
               {index < dashboardData.recentPayments.length - 1 && (
                 <Divider style={[styles.itemDivider, { backgroundColor: theme.colors.textSecondary }]} />
               )}
             </React.Fragment>
-          ))}
-        </>
-      )}
-    </View>
-  );
+          )}
+          ListEmptyComponent={() => (
+            <Text style={{ color: theme.colors.textSecondary, fontFamily: Fonts.lato.regular }}>
+              Ödeme bulunamadı
+            </Text>
+          )}
+          showsVerticalScrollIndicator={false}
+        />
+      </View>
+    );
+  };
 
   const renderTabContent = ({ item, index }) => {
     switch (index) {
@@ -765,6 +750,22 @@ const DashboardScreen = () => {
     <ScrollView 
       style={[styles.container, { backgroundColor: theme.colors.background }]}
       nestedScrollEnabled={true}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[theme.colors.primary]}
+          tintColor={theme.colors.primary}
+        />
+      }
+      onScroll={({ nativeEvent }) => {
+        const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+        const paddingToBottom = 20;
+        if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
+          handleEndReached();
+        }
+      }}
+      scrollEventThrottle={400}
     >
       <View style={styles.statsContainer}>
         <View style={styles.cardRow}>
@@ -823,14 +824,6 @@ const DashboardScreen = () => {
           decelerationRate="fast"
         />
       </Card>
-
-      <ComplaintModal 
-        visible={modalVisible}
-        complaint={selectedComplaint}
-        onClose={handleCloseModal}
-        onResolve={handleResolveComplaint}
-        isResolving={isResolving}
-      />
     </ScrollView>
   );
 };
@@ -908,6 +901,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     borderRadius: 16,
     overflow: 'hidden',
+    marginBottom: 80,
   },
   activityItem: {
     paddingVertical: 12,
@@ -1002,21 +996,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderWidth: 1,
   },
   itemDivider: {
     height: 1,
     opacity: 0.2,
   },
   flatList: {
-    height: "550",
+    height: 550,
+    marginBottom: 80,
   },
   flatListContent: {
     flexGrow: 1,
+    paddingBottom: 20,
   },
   tabContent: {
+    flex: 1,
     padding: 16,
     paddingTop: 8,
+    paddingBottom: 20,
   },
   financialOverviewCard: {
     borderRadius: 16,

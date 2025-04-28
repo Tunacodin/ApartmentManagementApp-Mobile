@@ -141,11 +141,13 @@ const ComplaintsScreen = () => {
   const getStatusText = (status) => {
     switch (status) {
       case ComplaintStatus.Open:
-        return 'Açık';
+        return 'Bekliyor';
       case ComplaintStatus.InProgress:
         return 'İşlemde';
       case ComplaintStatus.Resolved:
         return 'Çözüldü';
+      case ComplaintStatus.Cancelled:
+        return 'İptal Edildi';
       default:
         return 'Bilinmiyor';
     }
@@ -196,6 +198,18 @@ const ComplaintsScreen = () => {
               }}
             >
               <Text style={styles.actionButtonText}>Yanıtla</Text>
+            </TouchableOpacity>
+          )}
+
+          {item.status === ComplaintStatus.Open && (
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: '#4169E1' }]}
+              onPress={() => {
+                console.log('Taking complaint in progress:', item);
+                handleStatusChange(item.id, ComplaintStatus.InProgress);
+              }}
+            >
+              <Text style={styles.actionButtonText}>İşleme Al</Text>
             </TouchableOpacity>
           )}
 

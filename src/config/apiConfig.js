@@ -1,8 +1,9 @@
 // Base URL'i tanımla
-export const API_BASE_URL = "https://9d40-212-2-212-116.ngrok-free.app/api";
+export const API_BASE_URL = "https://5afe-78-187-59-29.ngrok-free.app/api";
 
 // Axios instance oluştur
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -16,21 +17,106 @@ export const api = axios.create({
 // Admin ID ve User ID yönetimi için global değişkenler ve yönetim fonksiyonları
 let currentAdminId = null;
 let currentUserId = null;
+let authToken = null;
 
-export const setCurrentAdminId = (adminId) => {
-    currentAdminId = adminId;
+// AsyncStorage anahtarları
+const STORAGE_KEYS = {
+  ADMIN_ID: '@admin_id',
+  USER_ID: '@user_id',
+  AUTH_TOKEN: '@auth_token'
+};
+
+// Token ve ID'leri AsyncStorage'dan yükle
+export const loadStoredCredentials = async () => {
+  try {
+    const [storedAdminId, storedUserId, storedToken] = await Promise.all([
+      AsyncStorage.getItem(STORAGE_KEYS.ADMIN_ID),
+      AsyncStorage.getItem(STORAGE_KEYS.USER_ID),
+      AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)
+    ]);
+
+    if (storedAdminId) {
+      currentAdminId = storedAdminId;
+    }
+    if (storedUserId) {
+      currentUserId = storedUserId;
+    }
+    if (storedToken) {
+      authToken = storedToken;
+      setAuthToken(storedToken);
+    }
+  } catch (error) {
+    console.error('Error loading stored credentials:', error);
+  }
+};
+
+// Admin ID yönetimi
+export const setCurrentAdminId = async (adminId) => {
+  currentAdminId = adminId;
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.ADMIN_ID, adminId.toString());
+  } catch (error) {
+    console.error('Error saving admin ID:', error);
+  }
 };
 
 export const getCurrentAdminId = () => {
-    return currentAdminId;
+  return currentAdminId;
 };
 
-export const setCurrentUserId = (userId) => {
-    currentUserId = userId;
+// User ID yönetimi
+export const setCurrentUserId = async (userId) => {
+  currentUserId = userId;
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.USER_ID, userId.toString());
+  } catch (error) {
+    console.error('Error saving user ID:', error);
+  }
 };
 
 export const getCurrentUserId = () => {
-    return currentUserId;
+  return currentUserId;
+};
+
+// Token yönetimi
+export const setAuthToken = async (token) => {
+  authToken = token;
+  if (token) {
+    api.defaults.headers['Authorization'] = `Bearer ${token}`;
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+    } catch (error) {
+      console.error('Error saving auth token:', error);
+    }
+  } else {
+    delete api.defaults.headers['Authorization'];
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+    } catch (error) {
+      console.error('Error removing auth token:', error);
+    }
+  }
+};
+
+export const getAuthToken = () => {
+  return authToken;
+};
+
+// Çıkış yapma işlemi
+export const clearCredentials = async () => {
+  try {
+    await Promise.all([
+      AsyncStorage.removeItem(STORAGE_KEYS.ADMIN_ID),
+      AsyncStorage.removeItem(STORAGE_KEYS.USER_ID),
+      AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN)
+    ]);
+    currentAdminId = null;
+    currentUserId = null;
+    authToken = null;
+    delete api.defaults.headers['Authorization'];
+  } catch (error) {
+    console.error('Error clearing credentials:', error);
+  }
 };
 
 // Endpoint'leri kategorilere ayırarak tanımla
@@ -155,8 +241,8 @@ export const API_ENDPOINTS = {
         UPDATE: (id) => `${API_BASE_URL}/Complaint/${id}`,
         DELETE: (id) => `${API_BASE_URL}/Complaint/${id}`,
         RESOLVE: (id, adminId) => `${API_BASE_URL}/Complaint/${id}/resolve/${adminId}`,
-        TAKE: (id, adminId) => `${API_BASE_URL}/Complaint/${id}/take?adminId=${adminId}`,
-        REJECT: (id, adminId) => `${API_BASE_URL}/Complaint/${id}/reject/${adminId}`,
+        PROCESS: (id, adminId) => `${API_BASE_URL}/Complaint/${id}/process?adminId=${adminId}`,
+        REJECT: (id, adminId) => `${API_BASE_URL}/Complaint/${id}/reject?adminId=${adminId}`,
         CLOSE: (id, adminId) => `${API_BASE_URL}/Complaint/${id}/close/${adminId}`,
         ADD_COMMENT: (id) => `${API_BASE_URL}/Complaint/${id}/comment`
     },
@@ -229,15 +315,6 @@ export const API_ENDPOINTS = {
 // API_ENDPOINTS tanımlandıktan sonra
 console.log('\n=== API Endpoints Yapılandırması ===');
 console.log('ADMIN.REPORTS:', API_ENDPOINTS.ADMIN.REPORTS);
-
-// Auth token yönetimi için helper fonksiyonlar
-export const setAuthToken = (token) => {
-    if (token) {
-        api.defaults.headers['Authorization'] = `Bearer ${token}`;
-    } else {
-        delete api.defaults.headers['Authorization'];
-    }
-};
 
 // Error handling için helper fonksiyonlar
 export const handleApiError = (error) => {
@@ -355,6 +432,8 @@ export default {
     getCurrentAdminId,
     setCurrentUserId,
     getCurrentUserId,
+    getAuthToken,
+    clearCredentials,
     getAdminCreateFormat,
     validateAdminData
 }; 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ScrollView, View, StyleSheet, FlatList, TouchableOpacity, Dimensions, TextInput, Linking, Animated, Modal, Clipboard } from 'react-native';
+import { ScrollView, View, StyleSheet, FlatList, TouchableOpacity, Dimensions, TextInput, Linking, Animated, Modal, Clipboard, Alert, Image } from 'react-native';
 import { 
   Card, 
   Text, 
@@ -9,6 +9,7 @@ import {
   ActivityIndicator, 
 
   Chip, 
+  Button,
 
 } from 'react-native-paper';
 import { Colors, Gradients } from '../../../constants/Colors';
@@ -21,6 +22,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import { API_ENDPOINTS, getCurrentAdminId } from '../../../config/apiConfig';
 import * as Animatable from 'react-native-animatable';
+import { useTheme } from 'react-native-paper';
 
 const { width } = Dimensions.get('window');
 
@@ -853,350 +855,435 @@ const ContractModal = ({ visible, onClose, contractFile }) => {
 
 // ComplaintsModal Component
 const ComplaintsModal = ({ visible, onClose, buildingId }) => {
+  const theme = useTheme();
   const [complaints, setComplaints] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [processingComplaint, setProcessingComplaint] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const screenHeight = Dimensions.get('window').height;
 
-  useEffect(() => {
-    const fetchComplaints = async () => {
-      if (!buildingId) return;
-      
-      try {
-        setLoading(true);
-        const response = await axios.get(API_ENDPOINTS.COMPLAINT.BY_BUILDING(buildingId));
-        
-        if (response.data && response.data.success) {
-          setComplaints(response.data.data);
-          setError(null);
-        } else {
-          throw new Error('Şikayet verileri alınamadı');
-        }
-      } catch (err) {
-        console.error('Error fetching complaints:', err);
-        setError('Şikayet verileri yüklenirken bir hata oluştu.');
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Her bir şikayet kartının yaklaşık yüksekliği: 140px
+  // 3 kart için: 140 * 3 = 420px
+  // Header yüksekliği: 60px
+  // Padding ve margin'ler: 40px
+  // Toplam: 420 + 60 + 40 = 520px
+  const modalHeight = 520;
 
-    if (visible) {
-      fetchComplaints();
+  const getStatusText = (status) => {
+    switch (status) {
+      case 0:
+        return "Açık";
+      case 1:
+        return "İşlemde";
+      case 2:
+        return "Çözüldü";
+      case 3:
+        return "Reddedildi";
+      default:
+        return "Bilinmeyen";
     }
-  }, [buildingId, visible]);
+  };
 
-  const handleTakeComplaint = async (complaintId) => {
+  const fetchComplaints = async () => {
     try {
-      setProcessingComplaint(complaintId);
+      setLoading(true);
+      console.log('=== Fetching Complaints ===');
+      console.log('Building ID:', buildingId);
+      
+      const response = await axios.get(API_ENDPOINTS.COMPLAINT.BY_BUILDING(buildingId));
+      
+      console.log('=== Complaints API Response ===');
+      console.log('Status:', response.status);
+      console.log('Data:', JSON.stringify(response.data, null, 2));
+      
+      // Sadece aktif şikayetleri (status 0 veya 1) filtrele
+      const activeComplaints = response.data.data.filter(complaint => 
+        complaint.status === 0 || complaint.status === 1
+      );
+      
+      console.log('=== Filtered Active Complaints ===');
+      console.log('Count:', activeComplaints.length);
+      console.log('Complaints:', JSON.stringify(activeComplaints, null, 2));
+      
+      setComplaints(activeComplaints);
+    } catch (error) {
+      console.error('=== Error fetching complaints ===');
+      console.error('Error Type:', error.name);
+      console.error('Error Message:', error.message);
+      if (error.response) {
+        console.error('Error Response:', JSON.stringify(error.response.data, null, 2));
+        console.error('Error Status:', error.response.status);
+      }
+      Alert.alert('Hata', 'Şikayetler yüklenirken bir hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProcessComplaint = async (complaintId) => {
+    try {
       const adminId = getCurrentAdminId();
-      const url = API_ENDPOINTS.COMPLAINT.TAKE(complaintId, adminId);
+      const response = await axios.post(`${API_ENDPOINTS.COMPLAINT.BASE}/${complaintId}/process?adminId=${adminId}`);
       
-      console.log('Taking complaint with URL:', url);
-      
-      const response = await axios.put(url, {}, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.data && response.data.success) {
-        // Refresh complaints list
-        const complaintsResponse = await axios.get(API_ENDPOINTS.COMPLAINT.BY_BUILDING(buildingId));
-        if (complaintsResponse.data && complaintsResponse.data.success) {
-          setComplaints(complaintsResponse.data.data);
-        }
+      if (response.data.success) {
+        Alert.alert('Başarılı', 'Şikayet işleme alındı');
+        fetchComplaints();
       } else {
-        throw new Error('İşlem başarısız oldu');
+        throw new Error(response.data.message);
       }
     } catch (error) {
-      console.error('Error taking complaint:', error);
-      if (error.response) {
-        console.error('Error Response:', error.response.data);
-        alert(`Şikayet işleme alınamadı: ${error.response.data.message || 'Bir hata oluştu'}`);
-      } else {
-        alert('Şikayet işleme alınırken bir hata oluştu');
-      }
-    } finally {
-      setProcessingComplaint(null);
+      console.error('Error processing complaint:', error);
+      Alert.alert('Hata', 'Şikayet işleme alınırken bir hata oluştu.');
     }
   };
 
   const handleResolveComplaint = async (complaintId) => {
-    try {
-      setProcessingComplaint(complaintId);
-      const adminId = getCurrentAdminId();
-      const url = API_ENDPOINTS.COMPLAINT.RESOLVE(complaintId, adminId);
-      
-      await axios.post(url, {}, {
-        headers: {
-          'Content-Type': 'application/json'
+    Alert.alert(
+      'Şikayet İşlemi',
+      'Şikayeti nasıl işlemek istersiniz?',
+      [
+        {
+          text: 'Çözüldü',
+          onPress: async () => {
+            try {
+              const adminId = getCurrentAdminId();
+              
+              console.log('Sending request with:', {
+                complaintId,
+                adminId,
+                url: `${API_ENDPOINTS.COMPLAINT.BASE}/${complaintId}/resolve?adminId=${adminId}`
+              });
+
+              const response = await axios.post(
+                `${API_ENDPOINTS.COMPLAINT.BASE}/${complaintId}/resolve?adminId=${adminId}`,
+                null,
+                {
+                  headers: {
+                    'Content-Type': 'application/json'
+                  }
+                }
+              );
+              
+              console.log('Response:', response.data);
+              
+              if (response.data.success) {
+                Alert.alert('Başarılı', 'Şikayet çözüldü olarak işaretlendi');
+                fetchComplaints();
+              } else {
+                throw new Error(response.data.message);
+              }
+            } catch (error) {
+              console.error('Error details:', {
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status
+              });
+              Alert.alert('Hata', 'Şikayet çözülürken bir hata oluştu.');
+            }
+          }
+        },
+        {
+          text: 'Reddet',
+          onPress: () => {
+            Alert.prompt(
+              'Şikayeti Reddet',
+              'Reddetme sebebini giriniz:',
+              [
+                {
+                  text: 'İptal',
+                  style: 'cancel'
+                },
+                {
+                  text: 'Reddet',
+                  onPress: async (reason) => {
+                    if (!reason || reason.trim() === '') {
+                      Alert.alert('Hata', 'Lütfen bir reddetme sebebi giriniz.');
+                      return;
+                    }
+
+                    try {
+                      const adminId = getCurrentAdminId();
+                      const response = await axios.post(
+                        `${API_ENDPOINTS.COMPLAINT.BASE}/${complaintId}/reject?adminId=${adminId}`,
+                        {
+                          reason: reason
+                        }
+                      );
+                      
+                      if (response.data.success) {
+                        Alert.alert('Başarılı', 'Şikayet reddedildi');
+                        fetchComplaints();
+                      } else {
+                        throw new Error(response.data.message);
+                      }
+                    } catch (error) {
+                      console.error('Error rejecting complaint:', error);
+                      Alert.alert('Hata', 'Şikayet reddedilirken bir hata oluştu.');
+                    }
+                  }
+                }
+              ],
+              'plain-text'
+            );
+          }
+        },
+        {
+          text: 'İptal',
+          style: 'cancel'
         }
-      });
-      
-      // Refresh complaints list
-      const response = await axios.get(API_ENDPOINTS.COMPLAINT.BY_BUILDING(buildingId));
-      if (response.data && response.data.success) {
-        setComplaints(response.data.data);
-      }
-    } catch (error) {
-      console.error('Error resolving complaint:', error);
-      if (error.response) {
-        console.error('Error Response:', error.response.data);
-      }
-    } finally {
-      setProcessingComplaint(null);
+      ]
+    );
+  };
+
+  const handleRejectComplaint = async (complaintId) => {
+    Alert.prompt(
+      'Şikayeti Reddet',
+      'Reddetme sebebini giriniz:',
+      [
+        {
+          text: 'İptal',
+          style: 'cancel'
+        },
+        {
+          text: 'Reddet',
+          onPress: async (reason) => {
+            if (!reason || reason.trim() === '') {
+              Alert.alert('Hata', 'Lütfen bir reddetme sebebi giriniz.');
+              return;
+            }
+
+            try {
+              const adminId = getCurrentAdminId();
+              const response = await axios.post(
+                `${API_ENDPOINTS.COMPLAINT.BASE}/${complaintId}/reject?adminId=${adminId}`,
+                {
+                  reason: reason
+                }
+              );
+              
+              if (response.data.success) {
+                Alert.alert('Başarılı', 'Şikayet reddedildi');
+                fetchComplaints();
+              } else {
+                throw new Error(response.data.message);
+              }
+            } catch (error) {
+              console.error('Error rejecting complaint:', error);
+              Alert.alert('Hata', 'Şikayet reddedilirken bir hata oluştu.');
+            }
+          }
+        }
+      ],
+      'plain-text'
+    );
+  };
+
+  const showActionSheet = (complaint) => {
+    Alert.alert(
+      'Şikayet İşlemi',
+      'Şikayeti nasıl işlemek istersiniz?',
+      [
+        {
+          text: 'İşleme Al',
+          onPress: () => handleProcessComplaint(complaint.id)
+        },
+        {
+          text: 'Çözüldü',
+          onPress: () => handleResolveComplaint(complaint.id)
+        },
+        {
+          text: 'Reddet',
+          onPress: () => handleRejectComplaint(complaint.id)
+        },
+        {
+          text: 'İptal',
+          style: 'cancel'
+        }
+      ]
+    );
+  };
+
+  useEffect(() => {
+    if (visible) {
+      fetchComplaints();
     }
-  };
-
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 0: // Open
-        return (
-          <View style={[styles.statusBadge, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}>
-            <Text style={[styles.statusText, { color: '#B45309' }]}>Yeni</Text>
-          </View>
-        );
-      case 1: // InProgress
-        return (
-          <View style={[styles.statusBadge, { backgroundColor: '#DBEAFE', borderColor: '#3B82F6' }]}>
-            <Text style={[styles.statusText, { color: '#1D4ED8' }]}>İşleme Alındı</Text>
-          </View>
-        );
-      case 2: // Resolved
-        return (
-          <View style={[styles.statusBadge, { backgroundColor: '#D1FAE5', borderColor: '#10B981' }]}>
-            <Text style={[styles.statusText, { color: '#047857' }]}>Çözüldü</Text>
-          </View>
-        );
-      case 3: // Closed
-        return (
-          <View style={[styles.statusBadge, { backgroundColor: '#E5E7EB', borderColor: '#6B7280' }]}>
-            <Text style={[styles.statusText, { color: '#374151' }]}>Kapatıldı</Text>
-          </View>
-        );
-      case 4: // Rejected
-        return (
-          <View style={[styles.statusBadge, { backgroundColor: '#FEE2E2', borderColor: '#EF4444' }]}>
-            <Text style={[styles.statusText, { color: '#B91C1C' }]}>Reddedildi</Text>
-          </View>
-        );
-      default:
-        return null;
-    }
-  };
-
-  const getTimeAgo = (date) => {
-    const now = new Date();
-    const complaintDate = new Date(date);
-    const diffInSeconds = Math.floor((now - complaintDate) / 1000);
-    
-    if (diffInSeconds < 60) return 'Az önce';
-    
-    const diffInMinutes = Math.floor(diffInSeconds / 60);
-    if (diffInMinutes < 60) return `${diffInMinutes} dakika önce`;
-    
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return `${diffInHours} saat önce`;
-    
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays < 30) return `${diffInDays} gün önce`;
-    
-    const diffInMonths = Math.floor(diffInDays / 30);
-    return `${diffInMonths} ay önce`;
-  };
-
-  const getPriorityBadge = (priority) => {
-    switch (priority) {
-      case 0: // Low
-        return (
-          <View style={[styles.priorityBadge, { backgroundColor: '#E0F2FE', borderColor: '#7DD3FC' }]}>
-            <Icon name="alert-circle-outline" size={14} color="#0369A1" />
-            <Text style={[styles.priorityText, { color: '#0369A1' }]}>Düşük</Text>
-          </View>
-        );
-      case 1: // Medium
-        return (
-          <View style={[styles.priorityBadge, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}>
-            <Icon name="alert-circle" size={14} color="#B45309" />
-            <Text style={[styles.priorityText, { color: '#B45309' }]}>Orta</Text>
-          </View>
-        );
-      case 2: // High
-        return (
-          <View style={[styles.priorityBadge, { backgroundColor: '#FEE2E2', borderColor: '#EF4444' }]}>
-            <Icon name="alert-circle" size={14} color="#B91C1C" />
-            <Text style={[styles.priorityText, { color: '#B91C1C' }]}>Yüksek</Text>
-          </View>
-        );
-      default:
-        return null;
-    }
-  };
-
-  const renderComplaintItem = ({ item }) => (
-    <Surface style={[styles.complaintItem, { elevation: 2 }]}>
-      <View style={styles.complaintHeader}>
-        <View style={styles.complaintTitleContainer}>
-          <Icon name="alert-circle" size={20} color="#EF4444" />
-          <Text style={styles.complaintSubject}>{item.subject}</Text>
-        </View>
-        {getStatusBadge(item.status)}
-      </View>
-      
-      <View style={styles.complaintMetaInfo}>
-        <View style={styles.metaItem}>
-          <Icon name="home" size={16} color="#64748B" />
-          <Text style={styles.metaText}>Daire {item.apartmentNumber || 'Belirtilmemiş'}</Text>
-        </View>
-        <View style={styles.metaItem}>
-          <Icon name="clock-outline" size={16} color="#64748B" />
-          <Text style={styles.metaText}>{getTimeAgo(item.createdAt)}</Text>
-        </View>
-        {getPriorityBadge(item.priority)}
-      </View>
-      
-      <Text style={styles.complaintDescription}>{item.description}</Text>
-      
-      <View style={styles.complaintFooter}>
-        <View style={styles.complaintUserInfo}>
-          {item.createdByProfileImage ? (
-            <Avatar.Image 
-              size={24} 
-              source={{ uri: item.createdByProfileImage }}
-              style={{ backgroundColor: 'transparent', marginRight: 8 }}
-            />
-          ) : (
-            <Avatar.Text 
-              size={24} 
-              label={item.createdByName?.split(' ').map(n => n[0]).join('')}
-              style={{ backgroundColor: '#E0F2FE', marginRight: 8 }}
-              labelStyle={{ color: '#0369A1', fontSize: 12 }}
-            />
-          )}
-          <Text style={styles.complaintUserName}>{item.createdByName}</Text>
-          <Text style={styles.complaintDate}>
-            {new Date(item.createdAt).toLocaleDateString('tr-TR', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })}
-          </Text>
-        </View>
-
-        {/* Action Buttons */}
-        {(item.status === 0 || item.status === 1) && (
-          <View style={styles.complaintActions}>
-            {item.status === 0 && (
-              <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: '#DBEAFE', marginRight: 8 }]}
-                onPress={() => handleTakeComplaint(item.id)}
-                disabled={processingComplaint === item.id}
-              >
-                {processingComplaint === item.id ? (
-                  <ActivityIndicator size="small" color="#3B82F6" />
-                ) : (
-                  <>
-                    <Icon name="play-circle" size={16} color="#3B82F6" />
-                    <Text style={[styles.actionButtonText, { color: '#3B82F6' }]}>İşleme Al</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
-            {item.status === 1 && (
-              <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: '#D1FAE5' }]}
-                onPress={() => handleResolveComplaint(item.id)}
-                disabled={processingComplaint === item.id}
-              >
-                {processingComplaint === item.id ? (
-                  <ActivityIndicator size="small" color="#10B981" />
-                ) : (
-                  <>
-                    <Icon name="check-circle" size={16} color="#10B981" />
-                    <Text style={[styles.actionButtonText, { color: '#10B981' }]}>Çözüldü</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-      </View>
-    </Surface>
-  );
+  }, [visible]);
 
   return (
     <Modal
-      animationType="slide"
-      transparent={true}
       visible={visible}
       onRequestClose={onClose}
+      animationType="slide"
+      transparent={true}
     >
-      <TouchableOpacity 
-        activeOpacity={1} 
-        onPress={onClose} 
-        style={StyleSheet.absoluteFill}
-      >
-        <BlurView
-          intensity={20}
-          tint="dark"
-          style={[
-            StyleSheet.absoluteFill,
-            styles.modalOverlay,
-          ]}
-        >
-          <TouchableOpacity 
-            activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
-            style={[styles.modalContent, { 
-              width: '95%', 
-              maxHeight: '80%',
-              backgroundColor: 'rgba(255, 255, 255, 0.8)',
-              borderWidth: 1,
-              borderColor: 'rgba(255, 255, 255, 0.2)',
-            }]}
-          >
-            <View style={[styles.modalHeader, { 
-              borderBottomColor: 'rgba(226, 232, 240, 0.6)',
-              backgroundColor: 'rgba(255, 255, 255, 0.9)'
-            }]}>
-              <Text style={styles.modalTitle}>Aktif Şikayetler</Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Icon name="close" size={24} color="#475569" />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={[styles.modalBody, { padding: 12 }]}>
-              {loading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color={Colors.primary} />
+      <View style={[styles.modalContainer, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+        <View style={[
+          styles.modalContent, 
+          { 
+            backgroundColor: '#FFFFFF',
+            height: modalHeight
+          }
+        ]}>
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: '#1E293B' }]}>
+              Aktif Şikayetler
+            </Text>
+            <TouchableOpacity onPress={onClose}>
+              <Icon name="close" size={24} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+          
+          {loading ? (
+            <ActivityIndicator size="large" color="#3498DB" />
+          ) : (
+            <ScrollView 
+              style={styles.scrollView}
+              contentContainerStyle={styles.complaintsList}
+              showsVerticalScrollIndicator={true}
+            >
+              {complaints.map((item) => (
+                <View key={item.id} style={[
+                  styles.complaintItem, 
+                  { 
+                    backgroundColor: '#F8FAFC',
+                    borderWidth: 0,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 2,
+                    elevation: 2,
+                    height: 200
+                  }
+                ]}>
+                  <View style={styles.complaintHeader}>
+                    <View style={styles.complaintUserInfo}>
+                      {item.profileImageUrl ? (
+                        <Image 
+                          source={{ uri: item.profileImageUrl }}
+                          style={styles.userAvatar}
+                        />
+                      ) : (
+                        <View style={[styles.userAvatar, styles.avatarPlaceholder]}>
+                          <Text style={styles.avatarText}>
+                            {item.createdByName?.charAt(0)}
+                          </Text>
+                        </View>
+                      )}
+                      <View style={styles.userDetails}>
+                        <Text style={[styles.userName, { color: '#1E293B' }]}>
+                          {item.createdByName}
+                        </Text>
+                        <View style={styles.userMetaInfo}>
+                          {item.apartmentNumber && (
+                            <Text style={[styles.apartmentNumber, { color: '#64748B' }]}>
+                              {item.apartmentNumber}
+                            </Text>
+                          )}
+                          <Text style={[styles.daysOpen, { color: '#64748B' }]}>
+                            • {item.daysOpen} gündür açık
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={[
+                      styles.statusBadge,
+                      { 
+                        backgroundColor: item.status === 0 ? '#E0F2FE' : 
+                                        item.status === 1 ? '#FEF3C7' : 
+                                        item.status === 2 ? '#DCFCE7' : 
+                                        '#FEE2E2',
+                        borderWidth: 0
+                      }
+                    ]}>
+                      <Text style={[styles.statusText, { 
+                        color: item.status === 0 ? '#0369A1' : 
+                               item.status === 1 ? '#D97706' : 
+                               item.status === 2 ? '#15803D' : 
+                               '#DC2626'
+                      }]}>
+                        {item.statusText || getStatusText(item.status)}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.complaintContent}>
+                    <Text style={[styles.complaintSubject, { color: '#1E293B' }]}>
+                      {item.subject}
+                    </Text>
+                    <Text style={[styles.complaintDescription, { color: '#475569' }]}>
+                      {item.description}
+                    </Text>
+                  </View>
+
+                  {item.status === 2 && item.resolvedAt && (
+                    <View style={styles.resolutionInfo}>
+                      <Icon name="check-circle" size={16} color="#15803D" />
+                      <Text style={[styles.resolutionText, { color: '#15803D' }]}>
+                        {new Date(item.resolvedAt).toLocaleString('tr-TR')} tarihinde çözüldü
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={styles.complaintFooter}>
+                    <View style={styles.contactInfo}>
+                      {item.phoneNumber && (
+                        <TouchableOpacity 
+                          style={styles.contactButton}
+                          onPress={() => Linking.openURL(`tel:${item.phoneNumber}`)}
+                        >
+                          <Icon name="phone" size={16} color="#0369A1" />
+                          <Text style={[styles.contactText, { color: '#0369A1' }]}>
+                            {item.phoneNumber}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                      {item.email && (
+                        <TouchableOpacity 
+                          style={styles.contactButton}
+                          onPress={() => Linking.openURL(`mailto:${item.email}`)}
+                        >
+                          <Icon name="email" size={16} color="#0369A1" />
+                          <Text style={[styles.contactText, { color: '#0369A1' }]}>
+                            {item.email}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    <View style={styles.actionButtons}>
+                      {item.status === 0 && (
+                        <TouchableOpacity
+                          style={[styles.actionButton, { 
+                            backgroundColor: '#E0F2FE',
+                            borderWidth: 0
+                          }]}
+                          onPress={() => showActionSheet(item)}
+                        >
+                          <Text style={[styles.actionButtonText, { color: '#0369A1' }]}>İşleme Al</Text>
+                        </TouchableOpacity>
+                      )}
+                      {item.status === 1 && (
+                        <TouchableOpacity
+                          style={[styles.actionButton, { 
+                            backgroundColor: '#DCFCE7',
+                            borderWidth: 0
+                          }]}
+                          onPress={() => handleResolveComplaint(item.id)}
+                        >
+                          <Text style={[styles.actionButtonText, { color: '#15803D' }]}>Çözüldü</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
                 </View>
-              ) : error ? (
-                <View style={styles.errorContainer}>
-                  <Icon name="alert-circle-outline" size={48} color={Colors.error} />
-                  <Text style={styles.errorText}>{error}</Text>
-                </View>
-              ) : complaints.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <Icon name="check-circle" size={48} color={Colors.success} />
-                  <Text style={styles.emptyText}>Aktif şikayet bulunmuyor</Text>
-                </View>
-              ) : (
-                <FlatList
-                  data={complaints}
-                  renderItem={renderComplaintItem}
-                  keyExtractor={(item) => item.id.toString()}
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={{ padding: 4 }}
-                  ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-                  style={{ maxHeight: 460 }}
-                />
+              ))}
+              {complaints.length === 0 && (
+                <Text style={[styles.emptyText, { color: '#64748B' }]}>
+                  Aktif şikayet bulunamadı
+                </Text>
               )}
-            </View>
-          </TouchableOpacity>
-        </BlurView>
-      </TouchableOpacity>
+            </ScrollView>
+          )}
+        </View>
+      </View>
     </Modal>
   );
 };
@@ -2539,131 +2626,229 @@ const styles = StyleSheet.create({
     color: Colors.error,
     textAlign: 'center'
   },
-  complaintItem: {
-    padding: 16,
+  complaintCard: {
+    marginBottom: 16,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    elevation: 3,
   },
   complaintHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
-  complaintTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  complaintInfo: {
+    flex: 1,
   },
-  complaintSubject: {
+  complaintTitle: {
     fontSize: 16,
-    fontFamily: Fonts.urbanist.bold,
-    color: '#334155',
-  },
-  complaintDate: {
-    fontSize: 12,
-    fontFamily: Fonts.urbanist.medium,
-    color: '#64748B',
+    fontWeight: 'bold',
   },
   complaintDescription: {
     fontSize: 14,
-    fontFamily: Fonts.urbanist.regular,
-    color: '#475569',
+    color: '#666',
     marginBottom: 12,
   },
-  complaintFooter: {
+  complaintMeta: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  complaintUserInfo: {
+  complaintMetaText: {
+    fontSize: 12,
+    color: '#999',
+  },
+  complaintActions: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 6,
   },
-  complaintUserName: {
-    fontSize: 13,
-    fontFamily: Fonts.urbanist.medium,
-    color: '#64748B',
+  statusChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
   },
-  emptyContainer: {
-    alignItems: 'center',
+  modalContainer: {
+    flex: 1,
     justifyContent: 'center',
-    padding: 32,
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  complaintsList: {
+    paddingVertical: 8,
   },
   emptyText: {
     fontSize: 16,
     fontFamily: Fonts.urbanist.medium,
-    color: Colors.success,
-    marginTop: 12,
+    color: Colors.textSecondary,
+    marginTop: 8,
   },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
+  complaintItem: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
   },
-  statusText: {
-    fontSize: 12,
-    fontFamily: Fonts.urbanist.semiBold,
+  complaintHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
-  complaintActions: {
+  complaintUserInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+  },
+  userAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  avatarPlaceholder: {
+    backgroundColor: '#E0F2FE',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    color: '#0369A1',
+    fontSize: 16,
+    fontFamily: Fonts.urbanist.bold,
+  },
+  userDetails: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 14,
+    fontFamily: Fonts.urbanist.semiBold,
+    marginBottom: 2,
+  },
+  complaintDate: {
+    fontSize: 12,
+    fontFamily: Fonts.urbanist.medium,
+  },
+  complaintContent: {
+    marginBottom: 12,
+  },
+  complaintSubject: {
+    fontSize: 14,
+    fontFamily: Fonts.urbanist.semiBold,
+    marginBottom: 4,
+  },
+  complaintDescription: {
+    fontSize: 13,
+    fontFamily: Fonts.urbanist.regular,
+    color: '#475569',
+    lineHeight: 18,
+  },
+  resolutionInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    padding: 8,
+    backgroundColor: '#DCFCE7',
+    borderRadius: 8,
+  },
+  resolutionText: {
+    fontSize: 12,
+    fontFamily: Fonts.urbanist.medium,
+    marginLeft: 4,
+  },
+  complaintFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  actionButtons: {
+    flexDirection: 'row',
   },
   actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    gap: 6,
+    marginLeft: 8,
   },
   actionButtonText: {
     fontSize: 12,
     fontFamily: Fonts.urbanist.semiBold,
   },
-  complaintDate: {
-    fontSize: 12,
-    fontFamily: Fonts.urbanist.medium,
-    color: '#64748B',
-    marginLeft: 8,
-  },
-  complaintMetaInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginTop: 8,
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  metaText: {
-    fontSize: 13,
-    fontFamily: Fonts.urbanist.medium,
-    color: '#64748B',
-  },
-  priorityBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+  processButton: {
     borderWidth: 1,
+  },
+  resolveButton: {
+    borderWidth: 1,
+  },
+  inProgressBadge: {
+    borderColor: Colors.warning,
+  },
+  resolvedBadge: {
+    borderColor: Colors.success,
+  },
+  modalContent: {
+    width: '90%',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    height: 60, // Header yüksekliği
+  },
+  scrollView: {
+    flex: 1,
+  },
+  complaintsList: {
+    paddingVertical: 8,
+  },
+  userMetaInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
   },
-  priorityText: {
+  apartmentNumber: {
     fontSize: 12,
-    fontFamily: Fonts.urbanist.semiBold,
+    fontFamily: Fonts.urbanist.medium,
+  },
+  daysOpen: {
+    fontSize: 12,
+    fontFamily: Fonts.urbanist.medium,
+  },
+  contactInfo: {
+    flex: 1,
+  },
+  contactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  contactText: {
+    fontSize: 12,
+    fontFamily: Fonts.urbanist.medium,
+    marginLeft: 4,
   },
 });
 
